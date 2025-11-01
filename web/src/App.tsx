@@ -270,8 +270,13 @@ const App = () => {
   };
 
   const handlePlay = (song: { id: number }) => {
-    const src = buildStreamUrl(song.id, false);
-    setAudioSrc(src);
+    if (source === "bili") {
+      const u = `/api/bili/streamByQuery?q=${encodeURIComponent(searchTerm)}&tag=${encodeURIComponent(tag)}`;
+      setAudioSrc(u);
+    } else {
+      const src = buildStreamUrl(song.id, false);
+      setAudioSrc(src);
+    }
     setAudioKey((prev) => prev + 1);
     setTimeout(fetchCache, 2000);
   };

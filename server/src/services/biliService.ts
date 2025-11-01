@@ -114,3 +114,43 @@ export async function searchBiliVideos(keywords: string, limit = 30, offset = 0)
   const list = res?.data?.result || res?.result || [];
   return Array.isArray(list) ? list : [];
 }
+
+export async function fetchAndCacheFromBiliByBvidCid(options: { cache: AudioCache; tag: string; songId: number; bvid: string; cid: number | string; titleHint?: string }) {
+  const { cache, tag, songId, bvid, cid, titleHint } = options;
+  const playurl = await biliRequest({
+    url: "https://api.bilibili.com/x/player/wbi/playurl",
+    useWbi: true,
+    params: {
+      bvid,
+      cid,
+      qn: 0,
+      fnval: 80,
+      fnver: 0,
+      fourk: 1,
+    },
+  });
+  const dashAudio = playurl?.data?.dash?.audio || [];
+  const audioItem = Array.isArray(dashAudio) && dashAudio.length > 0 ? dashAudio[0] : undefined;
+  const audioUrl: string | undefined = audioItem?.baseUrl || audioItem?.backupUrl?.[0];
+  if (!audioUrl) throw new Error("Bili playurl missing audio stream");
+
+  const audioResponse = await axios.get(audioUrl, {
+    responseType: "stream",
+    headers: {
+      Referer: "https://www.bilibili.com/",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    },
+  });
+  const mimeTypeHeader = (audioResponse.headers["content-type"] as string) || "audio/mp4";
+  const ext = (mime.extension(mimeTypeHeader) || "m4a").toString();
+  return cache.save({
+    tag,
+    songId,
+    stream: audioResponse.data,
+    mimeType: mimeTypeHeader,
+    extension: ext,
+    sourceUrl: audioUrl,
+    metadata: { title: titleHint || `${bvid}`, artists: ["Bilibili"], album: undefined },
+  });
+}

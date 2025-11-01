@@ -7,7 +7,7 @@ import { AudioCache, CacheEntry } from "../services/audioCache";
 import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient";
 import { config, defaultTag } from "../utils/config";
 import { fetchAndCacheSong } from "../services/songService";
-import { searchBiliVideos, fetchAndCacheFromBiliByKeywords } from "../services/biliService";
+import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBiliByBvidCid } from "../services/biliService";
 import path from "path";
 import fs from "fs";
 // vendor bilibili helpers
@@ -228,9 +228,22 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
         return next(createHttpError(400, "Invalid bvid/cid/id"));
       }
 
-      // Reuse the keyword based flow using bvid as keyword to keep code small
-      const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: bvid });
+      const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: `${bvid}` });
       await streamFromCache(entry, res, true);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/bili/streamByQuery", async (req, res, next) => {
+    try {
+      const q = String(req.query.q || req.query.keywords || "").trim();
+      if (!q) return next(createHttpError(400, "Missing query (?q=)"));
+      const tagParam = typeof req.query.tag === "string" && req.query.tag.trim() !== "" ? req.query.tag : defaultTag;
+      const tag = tagParam || defaultTag;
+      const songId = Date.now();
+      const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: q });
+      await streamFromCache(entry, res, false);
     } catch (error) {
       next(error);
     }
