@@ -1,7 +1,7 @@
 import request from 'supertest';
 import axios from 'axios';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+const BASE_URL = process.env.BASE_URL || '';
 const API = (p: string) => `${BASE_URL.replace(/\/$/, '')}${p}`;
 
 // Optional IDs for deeper tests. Provide via env to avoid flakiness.
@@ -23,7 +23,9 @@ function asBinary(r: request.Test) {
   });
 }
 
-describe('E2E (dev server)', () => {
+const RUN_E2E = !!BASE_URL;
+
+(RUN_E2E ? describe : describe.skip)('E2E (dev server)', () => {
   jest.setTimeout(20000);
   it('GET /api/health returns ok', async () => {
     const res = await request(BASE_URL).get('/api/health');

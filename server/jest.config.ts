@@ -11,7 +11,12 @@ const config: Config = {
   moduleNameMapper: {
     '^(.*)\\.(css|less|scss|sass)$': '<rootDir>/test/__mocks__/styleMock.ts',
   },
+  // Ensure Jest uses a TS config that includes Node + Jest types for tests
+  globals: {
+    'ts-jest': {
+      tsconfig: '<rootDir>/tsconfig.test.json',
+    },
+  },
 };
 
 export default config;
-

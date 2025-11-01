@@ -1,4 +1,4 @@
-ï»¿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, setApiCookie } from "./lib/api";
 
 type TabKey = "tracks" | "albums" | "playlist" | "cache";
@@ -66,10 +66,10 @@ interface AlbumDetail {
 type PlaylistItem = SongSummary & { albumId?: number };
 
 const tabs: { key: TabKey; label: string }[] = [
-  { key: "tracks", label: "æ­Œæ›²" },
-  { key: "albums", label: "ä¸“è¾‘" },
-  { key: "playlist", label: "æ’­æ”¾åˆ—è¡¨" },
-  { key: "cache", label: "ç¼“å­˜" },
+  { key: "tracks", label: "¸èÇú" },
+  { key: "albums", label: "×¨¼­" },
+  { key: "playlist", label: "²¥·ÅÁĞ±í" },
+  { key: "cache", label: "»º´æ" },
 ];
 
 const formatDuration = (ms: number) => {
@@ -80,7 +80,7 @@ const formatDuration = (ms: number) => {
 };
 
 const formatPlaybackDuration = (seconds?: number) => {
-  if (!seconds || Number.isNaN(seconds)) return "â€”";
+  if (!seconds || Number.isNaN(seconds)) return "¡ª";
   const whole = Math.round(seconds);
   const mins = Math.floor(whole / 60);
   const secs = whole % 60;
@@ -100,7 +100,6 @@ const AUDIO_BASE = "/api/songs";
 const App = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("tracks");
   const [searchTerm, setSearchTerm] = useState("");
-  const [source, setSource] = useState<string>(() => localStorage.getItem("gwm-source") || "netease");
   const [searchResults, setSearchResults] = useState<SongSummary[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,19 +167,22 @@ const App = () => {
     setError(null);
     setSearchLoading(true);
     try {
-      const { data } = await api.get("/search", { params: { q: searchTerm, limit: 30, type: 1, source } });
-      const neteaseSongs = data.songs || data.result?.songs || [];
-      const biliItems = data.items || [];
-      const songs: SongSummary[] = (source === "bili" ? biliItems : neteaseSongs).map((song: any, idx: number) => ({
-        id: source === "bili" ? idx + 1 : song.id,
-        name: song.name || song.title,
-        artists: source === "bili" ? [song.author || "Bilibili"] : (song.ar || song.artists || []).map((artist: any) => artist.name || artist),
-        album: source === "bili" ? undefined : song.al?.name || song.album?.name,
+      const { data } = await api.get("/search", {
+        params: {
+          q: searchTerm,
+          limit: 30,
+        },
+      });
+      const songs: SongSummary[] = (data.songs || data.result?.songs || []).map((song: any) => ({
+        id: song.id,
+        name: song.name,
+        artists: (song.ar || song.artists || []).map((artist: any) => artist.name),
+        album: song.al?.name || song.album?.name,
         durationMs: song.dt || song.duration || 0,
       }));
       setSearchResults(songs);
     } catch (err: any) {
-      setError(err?.response?.data?.message || err.message || "æœç´¢å¤±è´¥");
+      setError(err?.response?.data?.message || err.message || "ËÑË÷Ê§°Ü");
     } finally {
       setSearchLoading(false);
     }
@@ -202,7 +204,7 @@ const App = () => {
       });
       setAlbumResults(data.albums || []);
     } catch (err: any) {
-      setAlbumError(err?.response?.data?.message || err.message || "ä¸“è¾‘æœç´¢å¤±è´¥");
+      setAlbumError(err?.response?.data?.message || err.message || "×¨¼­ËÑË÷Ê§°Ü");
       setAlbumResults([]);
     } finally {
       setAlbumLoading(false);
@@ -216,7 +218,7 @@ const App = () => {
       const { data } = await api.get(`/albums/${albumId}`);
       setAlbumDetail(data);
     } catch (err: any) {
-      setAlbumError(err?.response?.data?.message || err.message || "åŠ è½½ä¸“è¾‘è¯¦æƒ…å¤±è´¥");
+      setAlbumError(err?.response?.data?.message || err.message || "¼ÓÔØ×¨¼­ÏêÇéÊ§°Ü");
     }
   };
 
@@ -249,13 +251,8 @@ const App = () => {
   };
 
   const handleDownload = (song: { id: number }) => {
-    if (source === "bili") {
-      const url = `/api/bili/downloadByQuery?q=${encodeURIComponent(searchTerm)}&tag=${encodeURIComponent(tag)}`;
-      window.open(url, "_blank");
-    } else {
-      const downloadUrl = buildStreamUrl(song.id, true);
-      window.open(downloadUrl, "_blank");
-    }
+    const downloadUrl = buildStreamUrl(song.id, true);
+    window.open(downloadUrl, "_blank");
     setTimeout(fetchCache, 4000);
   };
 
@@ -296,7 +293,7 @@ const App = () => {
       });
       fetchCache();
     } catch (err: any) {
-      setAlbumError(err?.response?.data?.message || err.message || "æ‰¹é‡ç¼“å­˜å¤±è´¥");
+      setAlbumError(err?.response?.data?.message || err.message || "ÅúÁ¿»º´æÊ§°Ü");
     }
   };
 
@@ -321,21 +318,21 @@ const App = () => {
     <div className="app-shell">
       <header className="hero">
         <div>
-          <h1>GWM NetEase éŸ³ä¹ä¸­å¿ƒ</h1>
-          <p>æœç´¢ã€ç¼“å­˜å¹¶æ’­æ”¾æ¥è‡ªç½‘æ˜“äº‘éŸ³ä¹çš„æ›²ç›®ï¼ˆä»…é™ä¸ªäººä½¿ç”¨ï¼‰ã€‚</p>
+          <h1>GWM NetEase ÒôÀÖÖĞĞÄ</h1>
+          <p>ËÑË÷¡¢»º´æ²¢²¥·ÅÀ´×ÔÍøÒ×ÔÆÒôÀÖµÄÇúÄ¿£¨½öÏŞ¸öÈËÊ¹ÓÃ£©¡£</p>
           {health && (
-            <small className="hero-status">æœåŠ¡çŠ¶æ€ï¼š{health.status} Â· ç¼“å­˜ç›®å½•ï¼š{health.cacheDir}</small>
+            <small className="hero-status">·şÎñ×´Ì¬£º{health.status} ¡¤ »º´æÄ¿Â¼£º{health.cacheDir}</small>
           )}
         </div>
         <section className="cookie-box">
-          <label htmlFor="cookie">VIP Cookieï¼ˆå¯é€‰ï¼‰</label>
+          <label htmlFor="cookie">VIP Cookie£¨¿ÉÑ¡£©</label>
           <textarea
             id="cookie"
             value={cookie}
-            placeholder="åœ¨æ­¤ç²˜è´´ MUSIC_U ç­‰ Cookie"
+            placeholder="ÔÚ´ËÕ³Ìù MUSIC_U µÈ Cookie"
             onChange={(event) => setCookie(event.target.value)}
           />
-          <small>è‹¥éœ€é«˜å“è´¨éŸ³æºï¼Œè¯·ç²˜è´´ç½‘æ˜“äº‘ VIP Cookieï¼ŒæœåŠ¡å™¨ä¼šå°†å…¶é™„åŠ åˆ°è¯·æ±‚å¤´ã€‚</small>
+          <small>ÈôĞè¸ßÆ·ÖÊÒôÔ´£¬ÇëÕ³ÌùÍøÒ×ÔÆ VIP Cookie£¬·şÎñÆ÷»á½«Æä¸½¼Óµ½ÇëÇóÍ·¡£</small>
         </section>
       </header>
 
@@ -343,36 +340,29 @@ const App = () => {
 
       <main className="tab-panels">
         <section className={`tab-panel ${activeTab === "tracks" ? "active" : ""}`}>
-          <h2>æ­Œæ›²æœç´¢</h2>
+          <h2>¸èÇúËÑË÷</h2>
           <form onSubmit={handleSearch} className="search-form">
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="è¾“å…¥æ­Œæ›²ã€æ­Œæ‰‹æˆ–ä¸“è¾‘å…³é”®è¯"
+              placeholder="ÊäÈë¸èÇú¡¢¸èÊÖ»ò×¨¼­¹Ø¼ü´Ê"
             />
             <button type="submit" disabled={searchLoading}>
-              {searchLoading ? "æœç´¢ä¸­..." : "æœç´¢"}
+              {searchLoading ? "ËÑË÷ÖĞ..." : "ËÑË÷"}
             </button>
           </form>
           <div className="search-options">
             <label>
-              ç¼“å­˜æ ‡ç­¾
+              »º´æ±êÇ©
               <input value={tag} onChange={(event) => setTag(event.target.value)} />
             </label>
             <label>
-              é¦–é€‰ç ç‡
+              Ê×Ñ¡ÂëÂÊ
               <select value={bitrate} onChange={(event) => setBitrate(event.target.value)}>
                 <option value="128000">128 kbps</option>
                 <option value="192000">192 kbps</option>
                 <option value="320000">320 kbps</option>
-                <option value="999000">æ— æŸä¼˜å…ˆ</option>
-              </select>
-            </label>
-            <label>
-              æ¥æº
-              <select value={source} onChange={(e) => { const v = (e.target as HTMLSelectElement).value; setSource(v); localStorage.setItem("gwm-source", v); }}>
-                <option value="netease">NetEase</option>
-                <option value="bili">Bilibili</option>
+                <option value="999000">ÎŞËğÓÅÏÈ</option>
               </select>
             </label>
           </div>
@@ -383,12 +373,12 @@ const App = () => {
                 <div>
                   <span className="song-title">{song.name}</span>
                   <span className="song-meta">
-                    {song.artists.join(" / ")} Â· {song.album || "æœªçŸ¥ä¸“è¾‘"} Â· {formatDuration(song.durationMs)}
+                    {song.artists.join(" / ")} ¡¤ {song.album || "Î´Öª×¨¼­"} ¡¤ {formatDuration(song.durationMs)}
                   </span>
                 </div>
                 <div className="actions">
-                  <button onClick={() => handlePlay(song)}>æ’­æ”¾</button>
-                  <button onClick={() => handleDownload(song)}>ç¼“å­˜ / ä¸‹è½½</button>
+                  <button onClick={() => handlePlay(song)}>²¥·Å</button>
+                  <button onClick={() => handleDownload(song)}>»º´æ / ÏÂÔØ</button>
                 </div>
               </li>
             ))}
@@ -396,15 +386,15 @@ const App = () => {
         </section>
 
         <section className={`tab-panel ${activeTab === "albums" ? "active" : ""}`}>
-          <h2>ä¸“è¾‘æœç´¢</h2>
+          <h2>×¨¼­ËÑË÷</h2>
           <form onSubmit={handleAlbumSearch} className="search-form">
             <input
               value={albumKeyword}
               onChange={(event) => setAlbumKeyword(event.target.value)}
-              placeholder="è¾“å…¥ä¸“è¾‘å…³é”®è¯"
+              placeholder="ÊäÈë×¨¼­¹Ø¼ü´Ê"
             />
             <button type="submit" disabled={albumLoading}>
-              {albumLoading ? "æœç´¢ä¸­..." : "æœç´¢"}
+              {albumLoading ? "ËÑË÷ÖĞ..." : "ËÑË÷"}
             </button>
           </form>
           {albumError && <div className="error-box">{albumError}</div>}
@@ -431,18 +421,18 @@ const App = () => {
                 )}
                 <div>
                   <h3>{albumDetail.album.name}</h3>
-                  {albumDetail.album.company && <p>å‘è¡Œå…¬å¸ï¼š{albumDetail.album.company}</p>}
+                  {albumDetail.album.company && <p>·¢ĞĞ¹«Ë¾£º{albumDetail.album.company}</p>}
                   {albumDetail.album.publishTime && (
-                    <p>å‘è¡Œæ—¶é—´ï¼š{new Date(albumDetail.album.publishTime).toLocaleDateString()}</p>
+                    <p>·¢ĞĞÊ±¼ä£º{new Date(albumDetail.album.publishTime).toLocaleDateString()}</p>
                   )}
                   <div className="album-actions">
-                    <button type="button" onClick={selectAllTracks}>å…¨é€‰</button>
-                    <button type="button" onClick={clearSelection}>æ¸…ç©º</button>
+                    <button type="button" onClick={selectAllTracks}>È«Ñ¡</button>
+                    <button type="button" onClick={clearSelection}>Çå¿Õ</button>
                     <button type="button" onClick={addSelectedToPlaylist} disabled={!selectedTrackIds.length}>
-                      åŠ å…¥æ’­æ”¾åˆ—è¡¨
+                      ¼ÓÈë²¥·ÅÁĞ±í
                     </button>
                     <button type="button" onClick={handleBatchCache} disabled={!selectedTrackIds.length}>
-                      ç¼“å­˜æ‰€é€‰
+                      »º´æËùÑ¡
                     </button>
                   </div>
                 </div>
@@ -463,9 +453,9 @@ const App = () => {
                         }}
                       />
                     </th>
-                    <th>æ­Œæ›²</th>
-                    <th>æ—¶é•¿</th>
-                    <th>æ“ä½œ</th>
+                    <th>¸èÇú</th>
+                    <th>Ê±³¤</th>
+                    <th>²Ù×÷</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -484,8 +474,8 @@ const App = () => {
                       </td>
                       <td>{formatDuration(track.durationMs)}</td>
                       <td className="actions">
-                        <button onClick={() => handlePlay(track)}>æ’­æ”¾</button>
-                        <button onClick={() => handleDownload(track)}>ç¼“å­˜ / ä¸‹è½½</button>
+                        <button onClick={() => handlePlay(track)}>²¥·Å</button>
+                        <button onClick={() => handleDownload(track)}>»º´æ / ÏÂÔØ</button>
                       </td>
                     </tr>
                   ))}
@@ -496,9 +486,9 @@ const App = () => {
         </section>
 
         <section className={`tab-panel ${activeTab === "playlist" ? "active" : ""}`}>
-          <h2>æ’­æ”¾é˜Ÿåˆ—</h2>
+          <h2>²¥·Å¶ÓÁĞ</h2>
           {!playlistQueue.length ? (
-            <p>æ’­æ”¾åˆ—è¡¨ä¸ºç©ºï¼Œå¯åœ¨æ­Œæ›²æˆ–ä¸“è¾‘é¡µé¢ä¸­æ·»åŠ ã€‚</p>
+            <p>²¥·ÅÁĞ±íÎª¿Õ£¬¿ÉÔÚ¸èÇú»ò×¨¼­Ò³ÃæÖĞÌí¼Ó¡£</p>
           ) : (
             <ul className="song-list">
               {playlistQueue.map((item) => (
@@ -507,13 +497,13 @@ const App = () => {
                     <span className="song-title">{item.name}</span>
                     <span className="song-meta">
                       {item.artists.join(" / ")}
-                      {item.album ? ` Â· ${item.album}` : ""} Â· {formatDuration(item.durationMs)}
+                      {item.album ? ` ¡¤ ${item.album}` : ""} ¡¤ {formatDuration(item.durationMs)}
                     </span>
                   </div>
                   <div className="actions">
-                    <button onClick={() => handlePlay(item)}>æ’­æ”¾</button>
-                    <button onClick={() => handleDownload(item)}>ç¼“å­˜ / ä¸‹è½½</button>
-                    <button onClick={() => removePlaylistItem(item.id)}>ç§»é™¤</button>
+                    <button onClick={() => handlePlay(item)}>²¥·Å</button>
+                    <button onClick={() => handleDownload(item)}>»º´æ / ÏÂÔØ</button>
+                    <button onClick={() => removePlaylistItem(item.id)}>ÒÆ³ı</button>
                   </div>
                 </li>
               ))}
@@ -522,24 +512,24 @@ const App = () => {
         </section>
 
         <section className={`tab-panel ${activeTab === "cache" ? "active" : ""}`}>
-          <h2>ç¼“å­˜æ¦‚è§ˆ</h2>
+          <h2>»º´æ¸ÅÀÀ</h2>
           <div className="cache-summary">
-            <span>å·²ç¼“å­˜ï¼š{cacheEntries.length} é¦–</span>
-            <span>æ€»å ç”¨ï¼š{formatBytes(totalCacheSize)}</span>
+            <span>ÒÑ»º´æ£º{cacheEntries.length} Ê×</span>
+            <span>×ÜÕ¼ÓÃ£º{formatBytes(totalCacheSize)}</span>
             <button onClick={fetchCache} disabled={cacheLoading}>
-              {cacheLoading ? "åˆ·æ–°ä¸­..." : "åˆ·æ–°"}
+              {cacheLoading ? "Ë¢ĞÂÖĞ..." : "Ë¢ĞÂ"}
             </button>
           </div>
           <table className="cache-table">
             <thead>
               <tr>
-                <th>æ­Œæ›²</th>
-                <th>æ ‡ç­¾</th>
-                <th>å¤§å°</th>
-                <th>æ—¶é•¿</th>
-                <th>ç ç‡</th>
-                <th>æœ€è¿‘è®¿é—®</th>
-                <th>å¤‡æ³¨</th>
+                <th>¸èÇú</th>
+                <th>±êÇ©</th>
+                <th>´óĞ¡</th>
+                <th>Ê±³¤</th>
+                <th>ÂëÂÊ</th>
+                <th>×î½ü·ÃÎÊ</th>
+                <th>±¸×¢</th>
               </tr>
             </thead>
             <tbody>
@@ -548,19 +538,19 @@ const App = () => {
                   <td>
                     <strong>{entry.title || entry.audioFile}</strong>
                     <div className="song-meta">
-                      {entry.artists?.join(" / ") ?? "æœªçŸ¥è‰ºäºº"}
-                      {entry.album ? ` Â· ${entry.album}` : ""}
+                      {entry.artists?.join(" / ") ?? "Î´ÖªÒÕÈË"}
+                      {entry.album ? ` ¡¤ ${entry.album}` : ""}
                     </div>
                     <div className="song-meta small">{entry.audioFile}</div>
                   </td>
                   <td>{entry.tag}</td>
                   <td>{formatBytes(entry.size)}</td>
                   <td>{formatPlaybackDuration(entry.durationSeconds)}</td>
-                  <td>{entry.bitrateKbps ? `${entry.bitrateKbps} kbps` : "â€”"}</td>
+                  <td>{entry.bitrateKbps ? `${entry.bitrateKbps} kbps` : "¡ª"}</td>
                   <td>{new Date(entry.lastAccessedAt).toLocaleString()}</td>
                   <td>
-                    {entry.hasLyrics && <span className="badge">æ­Œè¯</span>}
-                    {entry.hasCover && <span className="badge">å°é¢</span>}
+                    {entry.hasLyrics && <span className="badge">¸è´Ê</span>}
+                    {entry.hasCover && <span className="badge">·âÃæ</span>}
                   </td>
                 </tr>
               ))}
@@ -572,11 +562,11 @@ const App = () => {
       {renderTabs("bottom")}
 
       <footer className="player-footer">
-        <h3>æ­£åœ¨æ’­æ”¾</h3>
+        <h3>ÕıÔÚ²¥·Å</h3>
         {audioSrc ? (
           <audio key={audioKey} src={audioSrc} controls autoPlay />
         ) : (
-          <p>é€‰æ‹©ä¸€é¦–æ­Œæ›²å¼€å§‹æ’­æ”¾ã€‚</p>
+          <p>Ñ¡ÔñÒ»Ê×¸èÇú¿ªÊ¼²¥·Å¡£</p>
         )}
       </footer>
     </div>

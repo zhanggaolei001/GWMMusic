@@ -4,6 +4,7 @@ import mime from "mime-types";
 import { AudioCache } from "./audioCache";
 import { NeteaseClient, NeteaseRequestOptions } from "./neteaseClient";
 import { config } from "../utils/config";
+import { fetchAndCacheFromBiliByKeywords } from "./biliService";
 
 interface FetchParams {
   cache: AudioCache;
@@ -22,14 +23,36 @@ export async function fetchAndCacheSong({
   bitrate,
   requestOptions,
 }: FetchParams) {
-  const songUrlResponse = await client.call<any>("song_url", {
-    id: String(songId),
-    br: bitrate,
-  }, requestOptions);
+  let songUrlResponse: any | undefined;
+  let first: any | undefined;
+  try {
+    songUrlResponse = await client.call<any>("song_url", {
+      id: String(songId),
+      br: bitrate,
+    }, requestOptions);
+    first = songUrlResponse?.data?.[0];
+  } catch {
+    // ignore and handle fallback below
+  }
 
-  const first = songUrlResponse?.data?.[0];
   if (!first || !first.url) {
-    throw new Error("Failed to resolve song stream URL");
+    // fallback to bilibili by searching title/artist
+    try {
+      const detail = await client.call<any>("song_detail", { ids: String(songId) }, requestOptions);
+      const song = detail?.songs?.[0];
+      const title = song?.name as string | undefined;
+      const primaryArtist = song?.ar?.[0]?.name as string | undefined;
+      const keywords = [title, primaryArtist].filter(Boolean).join(" ") || String(songId);
+
+      return fetchAndCacheFromBiliByKeywords({
+        cache,
+        tag,
+        songId,
+        keywords,
+      });
+    } catch (e) {
+      throw new Error("Failed to resolve song stream URL (netease) and fallback (bili) also failed");
+    }
   }
 
   const audioResponse = await axios.get(first.url, {
