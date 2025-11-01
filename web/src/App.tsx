@@ -9,6 +9,7 @@ interface SongSummary {
   artists: string[];
   album?: string;
   durationMs: number;
+  bvid?: string;
 }
 
 interface CacheEntry {
@@ -95,7 +96,12 @@ const formatBytes = (bytes: number) => {
   return `${size.toFixed(1)} ${units[exponent]}`;
 };
 
-const AUDIO_BASE = "/api/songs";
+const devApiBase = () => {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:4000`;
+};
+const API_BASE = import.meta.env.DEV ? devApiBase() : "";
+const AUDIO_BASE = `${API_BASE}/api/songs`;
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("tracks");
@@ -125,6 +131,12 @@ const App = () => {
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
 
   const [health, setHealth] = useState<{ status: string; cacheDir: string } | null>(null);
+  // Download dialog (mobile-friendly)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [pendingSong, setPendingSong] = useState<SongSummary | null>(null);
+  const [filenameInput, setFilenameInput] = useState("");
+  const [formatInput, setFormatInput] = useState<"mp3" | "flac" | "original">("mp3");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     setApiCookie(cookie);
@@ -205,6 +217,7 @@ const App = () => {
         artists: source === "bili" ? [song.author || "Bilibili"] : (song.ar || song.artists || []).map((artist: any) => artist.name || artist),
         album: source === "bili" ? undefined : song.al?.name || song.album?.name,
         durationMs: song.dt || song.duration || 0,
+        bvid: source === "bili" ? (song.bvid || song.bvid_new || song.bvid_old) : undefined,
       }));
       setSearchResults(songs);
     } catch (err: any) {
@@ -269,9 +282,9 @@ const App = () => {
     return `${AUDIO_BASE}/${songId}/${asDownload ? "download" : "stream"}?${params.toString()}`;
   };
 
-  const handlePlay = (song: { id: number }) => {
-    if (source === "bili") {
-      const u = `/api/bili/streamByQuery?q=${encodeURIComponent(searchTerm)}&tag=${encodeURIComponent(tag)}`;
+  const handlePlay = (song: { id: number; bvid?: string }) => {
+    if (source === "bili" && song.bvid) {
+      const u = `${API_BASE}/api/bili/${encodeURIComponent(song.bvid)}/stream?tag=${encodeURIComponent(tag)}`;
       setAudioSrc(u);
     } else {
       const src = buildStreamUrl(song.id, false);
@@ -281,9 +294,42 @@ const App = () => {
     setTimeout(fetchCache, 2000);
   };
 
-  const handleDownload = (song: { id: number }) => {
-    if (source === "bili") {
-      const url = `/api/bili/downloadByQuery?q=${encodeURIComponent(searchTerm)}&tag=${encodeURIComponent(tag)}`;
+  const openDownloadDialog = (song: any) => {
+    setPendingSong(song as any);
+    const base = [searchTerm, ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []), (song && song.name) || ""].filter(Boolean) as string[];
+    setSuggestions(base);
+    setFilenameInput(base[0] || (song && song.name) || "");
+    setFormatInput("mp3");
+    setShowDownloadDialog(true);
+  };
+
+  const confirmDownload = () => {
+    if (!pendingSong) return;
+    const s: any = pendingSong;
+    setShowDownloadDialog(false);
+    if (source === "bili" && s.bvid) {
+      const url = `${API_BASE}/api/bili/${encodeURIComponent(s.bvid)}/download?tag=${encodeURIComponent(tag)}&filename=${encodeURIComponent(filenameInput)}&format=${encodeURIComponent(formatInput)}`;
+      window.open(url, "_blank");
+    } else {
+      const downloadUrl = buildStreamUrl(s.id, true);
+      window.open(downloadUrl, "_blank");
+    }
+    setTimeout(fetchCache, 4000);
+    setPendingSong(null);
+  };
+
+  const cancelDownload = () => {
+    setShowDownloadDialog(false);
+    setPendingSong(null);
+  };
+
+  const handleDownload = (song: { id: number; bvid?: string }) => {
+    if (source === "bili" && song.bvid) {
+      const suggested = [searchTerm, ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []), song.name].filter(Boolean);
+      const input = window.prompt(`输入要保存的文件名（不含扩展名）：\n建议：\n1) ${suggested[0] || ''}\n2) ${suggested[1] || ''}\n3) ${suggested[2] || ''}`, suggested[0] || song.name || "");
+      if (input === null) return;
+      const format = window.prompt("选择格式（mp3 或 original）", "mp3") || "mp3";
+      const url = `${API_BASE}/api/bili/${encodeURIComponent(song.bvid)}/download?tag=${encodeURIComponent(tag)}&filename=${encodeURIComponent(input)}&format=${encodeURIComponent(format)}`;
       window.open(url, "_blank");
     } else {
       const downloadUrl = buildStreamUrl(song.id, true);

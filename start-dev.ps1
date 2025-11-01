@@ -19,13 +19,13 @@ if (Test-Path $webLog)    { Remove-Item $webLog -Force }
 Write-Host "Starting server dev (logs: $serverLog)" -ForegroundColor Green
 $serverAbs = (Resolve-Path $ServerDir).Path
 $serverLogAbs = (Resolve-Path $LogDir).Path + [IO.Path]::DirectorySeparatorChar + (Split-Path -Leaf $serverLog)
-$serverCmd = "cd /d `"$serverAbs`" && npm run dev 1>>`"$serverLogAbs`" 2>>&1"
+$serverCmd = "chcp 65001 >nul & cd /d `"$serverAbs`" & npm run dev 1>>`"$serverLogAbs`" 2>>&1"
 $serverProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $serverCmd -PassThru
 
 Write-Host "Starting web dev (logs: $webLog)" -ForegroundColor Green
 $webAbs = (Resolve-Path $WebDir).Path
 $webLogAbs = (Resolve-Path $LogDir).Path + [IO.Path]::DirectorySeparatorChar + (Split-Path -Leaf $webLog)
-$webCmd = "cd /d `"$webAbs`" && npm run dev 1>>`"$webLogAbs`" 2>>&1"
+$webCmd = "chcp 65001 >nul & cd /d `"$webAbs`" & npm run dev 1>>`"$webLogAbs`" 2>>&1"
 $webProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $webCmd -PassThru
 
 Write-Host "Both processes started." -ForegroundColor Cyan
@@ -33,12 +33,13 @@ Write-Host ("Server PID: {0} | Web PID: {1}" -f ($serverProc.Id | ForEach-Object
 Write-Host "Tail logs with: `n  Get-Content $serverLog -Wait`n  Get-Content $webLog -Wait" -ForegroundColor DarkGray
 Write-Host "Press Ctrl+C to end this script. Use Stop-Process -Id <PID> to stop individually."
 
-# Keep the script alive to allow Ctrl+C and quick status
-try {
-  while ($true) {
-    Start-Sleep -Seconds 1
-    if ($serverProc.HasExited -or $webProc.HasExited) { break }
-  }
-} finally {
-  # No auto-kill; user may want to keep them running after script exits
+# Block until either process exits (simplest way to avoid immediate return)
+if ($serverProc -and $webProc) {
+  Wait-Process -Id $serverProc.Id, $webProc.Id
+} elseif ($serverProc) {
+  Wait-Process -Id $serverProc.Id
+} elseif ($webProc) {
+  Wait-Process -Id $webProc.Id
+} else {
+  Write-Warning "Failed to start server/web processes. Check logs directory."
 }

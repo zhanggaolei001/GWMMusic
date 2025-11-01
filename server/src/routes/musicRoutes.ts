@@ -7,9 +7,7 @@ import { AudioCache, CacheEntry } from "../services/audioCache";
 import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient";
 import { config, defaultTag } from "../utils/config";
 import { fetchAndCacheSong } from "../services/songService";
-import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBiliByBvidCid } from "../services/biliService";
-import path from "path";
-import fs from "fs";
+import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBiliByBvidCid, resolveFirstCid, fetchAndCacheFromBiliWithOptions } from "../services/biliService";
 // vendor bilibili helpers
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../vendor/util/biliApiHandler");
@@ -211,7 +209,19 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       const tag = tagParam || defaultTag;
       const idRaw = req.query.id;
       const songId = Number.isFinite(Number(idRaw)) ? Number(idRaw) : Date.now();
-      const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: q });
+      const desiredName = typeof req.query.filename === "string" ? req.query.filename : undefined;
+      const format = typeof req.query.format === "string" ? String(req.query.format) : undefined;
+      let entry;
+      try {
+        entry = await fetchAndCacheFromBiliWithOptions({ cache: deps.cache, tag, songId, keywords: q, desiredName, format, client: deps.client });
+      } catch (e) {
+        // fallback: resolve bvid/cid from search then download by bvid/cid
+        const items = await searchBiliVideos(q, 5, 0);
+        const bvid = (items[0] && (items[0].bvid || items[0].bvid_new || items[0].bvid_old)) as string | undefined;
+        if (!bvid) throw e;
+        const { cid } = await resolveFirstCid(bvid);
+        entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: desiredName || items[0]?.title, format, client: deps.client });
+      }
       await streamFromCache(entry, res, true);
     } catch (error) {
       next(error);
@@ -244,6 +254,36 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       const songId = Date.now();
       const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: q });
       await streamFromCache(entry, res, false);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/bili/:bvid/stream", async (req, res, next) => {
+    try {
+      const { bvid } = req.params as { bvid: string };
+      const { cid, title } = await resolveFirstCid(bvid);
+      const tagParam = typeof req.query.tag === "string" && req.query.tag.trim() !== "" ? req.query.tag : defaultTag;
+      const tag = tagParam || defaultTag;
+      const songId = Number.parseInt(String(req.query.id || cid), 10);
+      const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: title });
+      await streamFromCache(entry, res, false);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/bili/:bvid/download", async (req, res, next) => {
+    try {
+      const { bvid } = req.params as { bvid: string };
+      const { cid, title } = await resolveFirstCid(bvid);
+      const tagParam = typeof req.query.tag === "string" && req.query.tag.trim() !== "" ? req.query.tag : defaultTag;
+      const tag = tagParam || defaultTag;
+      const songId = Number.parseInt(String(req.query.id || cid), 10);
+      const desiredName = typeof req.query.filename === "string" ? req.query.filename : undefined;
+      const format = typeof req.query.format === "string" ? String(req.query.format) : undefined;
+      const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: desiredName || title, format, client: deps.client });
+      await streamFromCache(entry, res, true);
     } catch (error) {
       next(error);
     }

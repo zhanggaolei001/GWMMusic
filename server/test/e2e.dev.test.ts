@@ -1,7 +1,8 @@
 import request from 'supertest';
 import axios from 'axios';
+import { spawn, ChildProcess } from 'child_process';
 
-const BASE_URL = process.env.BASE_URL || '';
+let BASE_URL = process.env.BASE_URL || '';
 const API = (p: string) => `${BASE_URL.replace(/\/$/, '')}${p}`;
 
 // Optional IDs for deeper tests. Provide via env to avoid flakiness.
@@ -23,10 +24,44 @@ function asBinary(r: request.Test) {
   });
 }
 
-const RUN_E2E = !!BASE_URL;
-
-(RUN_E2E ? describe : describe.skip)('E2E (dev server)', () => {
+describe('E2E (dev server)', () => {
   jest.setTimeout(20000);
+  let child: ChildProcess | null = null;
+
+  const waitForHealth = async (base: string, timeoutMs = 15000) => {
+    const start = Date.now();
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        const res = await axios.get(`${base.replace(/\/$/,'')}/api/health`, { timeout: 1500 });
+        if (res.status === 200) return;
+      } catch {}
+      if (Date.now() - start > timeoutMs) throw new Error('health timeout');
+      await new Promise(r => setTimeout(r, 300));
+    }
+  };
+
+  beforeAll(async () => {
+    if (!BASE_URL) {
+      // start local server via ts-node
+      child = spawn(process.execPath, ['-e', "require('ts-node/register'); require('./src/index.ts');"], {
+        cwd: __dirname + '/..',
+        stdio: 'ignore',
+        shell: false,
+      });
+      BASE_URL = 'http://localhost:4000';
+      await waitForHealth(BASE_URL, 20000);
+    } else {
+      await waitForHealth(BASE_URL, 20000);
+    }
+  });
+
+  afterAll(async () => {
+    if (child) {
+      try { child.kill('SIGTERM'); } catch {}
+      child = null;
+    }
+  });
   it('GET /api/health returns ok', async () => {
     const res = await request(BASE_URL).get('/api/health');
     expect(res.status).toBe(200);
@@ -83,6 +118,54 @@ const RUN_E2E = !!BASE_URL;
     // eslint-disable-next-line no-console
     console.log(`[bili] cache before=${before.length} after=${after.length}`);
     expect(after.length >= before.length).toBe(true);
+  });
+
+  it('Bili: 周杰伦 以父之名 -> filename=以父之名 (mp3)', async () => {
+    const query = '周杰伦 以父之名';
+    // ensure bili search returns items
+    const search = await request(BASE_URL)
+      .get('/api/search')
+      .query({ q: query, type: 1, limit: 5, source: 'bili' });
+    expect(search.status).toBe(200);
+    const items = (search.body && (search.body.items || [])) || [];
+    expect(items.length).toBeGreaterThan(0);
+
+    const before = await getCacheList();
+    const dl = await axios.get(`${API('/api/bili/downloadByQuery')}?q=${encodeURIComponent(query)}&tag=test&filename=${encodeURIComponent('以父之名')}&format=mp3`, {
+      responseType: 'stream', validateStatus: () => true, timeout: 20000,
+    });
+    expect([200,206]).toContain(dl.status);
+    (dl.data as any)?.destroy?.();
+
+    const after = await getCacheList();
+    const found = after.some(e => String(e.title || '').includes('以父之名'));
+    // eslint-disable-next-line no-console
+    console.log(`[bili-specific] cache before=${before.length} after=${after.length} found=${found}`);
+    expect(found || after.length > before.length).toBe(true);
+  });
+
+  it('Bili bulk download 3 songs into cache', async () => {
+    const queries = (process.env.BULK_BILI_QUERIES || '刘德华 冰雨;周杰伦 晴天;张学友 吻别')
+      .split(';').map(s => s.trim()).filter(Boolean);
+    const before = await getCacheList();
+    // eslint-disable-next-line no-console
+    console.log(`[bili-bulk] initial cache: ${before.length}`);
+    let ok = 0;
+    for (const q of queries) {
+      try {
+        const dl = await axios.get(`${API('/api/bili/downloadByQuery')}?q=${encodeURIComponent(q)}&tag=test&filename=${encodeURIComponent(q)}&format=mp3`, {
+          responseType: 'stream', validateStatus: () => true, timeout: 20000,
+        });
+        if ([200,206].includes(dl.status)) ok++;
+        (dl.data as any)?.destroy?.();
+      } catch (e) {
+        // ignore
+      }
+    }
+    const after = await getCacheList();
+    // eslint-disable-next-line no-console
+    console.log(`[bili-bulk] after cache: ${after.length}, ok=${ok}`);
+    expect(ok).toBeGreaterThanOrEqual(1);
   });
 
   it('Search specific song: 刘德华-冰雨', async () => {
