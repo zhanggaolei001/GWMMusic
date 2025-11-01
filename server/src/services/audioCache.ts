@@ -5,6 +5,7 @@ import { pipeline } from "stream/promises";
 import { parseFile } from "music-metadata";
 import mime from "mime-types";
 import * as NodeID3 from "node-id3";
+import { config } from "../utils/config";
 
 export interface CacheMetadata {
   id: number;
@@ -63,8 +64,7 @@ interface EntryPaths {
   indexPath: string;
 }
 
-const MIN_CACHE_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
-const MIN_CACHE_BITRATE_KBPS = 192;
+// thresholds moved to config.cache.minSizeBytes / minBitrateKbps
 
 export class AudioCache {
   private readonly baseDir: string;
@@ -279,8 +279,8 @@ export class AudioCache {
     });
 
     const isLowQuality =
-      stats.size < MIN_CACHE_SIZE_BYTES ||
-      ((bitrateKbps ?? 0) > 0 && (bitrateKbps ?? 0) < MIN_CACHE_BITRATE_KBPS);
+      stats.size < (config.cache.minSizeBytes ?? 0) ||
+      ((bitrateKbps ?? 0) > 0 && (bitrateKbps ?? 0) < (config.cache.minBitrateKbps ?? 0));
 
     await this.ensureCapacity();
 

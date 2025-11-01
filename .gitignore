@@ -41,3 +41,4 @@ cache/
 # Misc
 *.tsbuildinfo
 *.tgz
+server/tmp-test-*

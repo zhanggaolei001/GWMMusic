@@ -21,6 +21,9 @@ export const config = {
     baseDir: path.resolve(process.env.CACHE_DIR || path.join(process.cwd(), "..", DEFAULT_CACHE_SUBDIR)),
     maxSizeBytes: intFromEnv(process.env.CACHE_MAX_SIZE_MB, 2048) * 1024 * 1024,
     ttlMs: intFromEnv(process.env.CACHE_TTL_HOURS, 24) * 60 * 60 * 1000,
+    // New: thresholds to decide whether an entry is transient (auto-removed after send)
+    minSizeBytes: intFromEnv(process.env.CACHE_MIN_SIZE_MB, 4) * 1024 * 1024,
+    minBitrateKbps: intFromEnv(process.env.CACHE_MIN_BITRATE_KBPS, 192),
   },
   netease: {
     cookie: process.env.NETEASE_COOKIE || "",
