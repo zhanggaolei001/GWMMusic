@@ -8,6 +8,13 @@ import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient"
 import { config, defaultTag } from "../utils/config";
 import { fetchAndCacheSong } from "../services/songService";
 import { searchBiliVideos, fetchAndCacheFromBiliByKeywords } from "../services/biliService";
+import path from "path";
+import fs from "fs";
+// vendor bilibili helpers
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../vendor/util/biliApiHandler");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { cache: biliCache } = require("../../../vendor/util/biliRequest");
 
 type MusicDeps = {
   cache: AudioCache;
@@ -224,6 +231,57 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       // Reuse the keyword based flow using bvid as keyword to keep code small
       const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: bvid });
       await streamFromCache(entry, res, true);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Bilibili stream proxy with proper headers
+  router.get("/bilibili/stream-proxy", async (req, res, next) => {
+    try {
+      const url = String(req.query.url || "");
+      if (!url) {
+        return next(createHttpError(400, "Missing url"));
+      }
+      await createStreamProxy(url, {}, req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Bilibili cookie management
+  router.post("/bilibili/update-cookie", async (req, res, next) => {
+    try {
+      const cookie = String(req.body?.cookie || "");
+      if (!cookie) return next(createHttpError(400, "Missing cookie"));
+      const ok = updateCookie(cookie);
+      if (!ok) return next(createHttpError(400, "Invalid cookie"));
+      res.json({ code: 0, message: "Cookie updated" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/bilibili/refresh-cookie", async (_req, res, next) => {
+    try {
+      const cookie = await getBilibiliCookies();
+      if (cookie) updateCookie(cookie);
+      res.json({ code: 0, message: "Cookie refreshed", hasCookie: Boolean(cookie) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/bilibili/clear-cache", async (_req, res, next) => {
+    try {
+      // reset in-memory cache
+      biliCache.buvid = '';
+      biliCache.wbiKeys = null;
+      biliCache.lastWbiKeysFetchTime = 0;
+      // remove cookie cache file
+      const cookieCache = path.join(__dirname, "../../../vendor/cache/bilibili_cookies.json");
+      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch {}
+      res.json({ code: 0, message: "Bilibili cache cleared" });
     } catch (error) {
       next(error);
     }

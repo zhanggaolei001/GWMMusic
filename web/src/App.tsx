@@ -109,6 +109,7 @@ const App = () => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [audioKey, setAudioKey] = useState(0);
   const [cookie, setCookie] = useState<string>(() => localStorage.getItem("gwm-netease-cookie") || "");
+  const [biliCookie, setBiliCookie] = useState<string>("");
   const [cacheEntries, setCacheEntries] = useState<CacheEntry[]>([]);
   const [cacheLoading, setCacheLoading] = useState(false);
   const [playlistQueue, setPlaylistQueue] = useState<PlaylistItem[]>(() => {
@@ -133,6 +134,33 @@ const App = () => {
       localStorage.removeItem("gwm-netease-cookie");
     }
   }, [cookie]);
+
+  const updateBiliCookie = async () => {
+    try {
+      await api.post("/bilibili/update-cookie", { cookie: biliCookie });
+      alert("Bilibili Cookie 已更新");
+    } catch (e: any) {
+      alert(e?.response?.data?.message || e.message || "更新失败");
+    }
+  };
+
+  const refreshBiliCookie = async () => {
+    try {
+      await api.get("/bilibili/refresh-cookie");
+      alert("Bilibili Cookie 已刷新");
+    } catch (e: any) {
+      alert(e?.response?.data?.message || e.message || "刷新失败");
+    }
+  };
+
+  const clearBiliCache = async () => {
+    try {
+      await api.get("/bilibili/clear-cache");
+      alert("Bilibili 缓存已清理");
+    } catch (e: any) {
+      alert(e?.response?.data?.message || e.message || "清理失败");
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem("gwm-tag", tag);
@@ -336,6 +364,20 @@ const App = () => {
             onChange={(event) => setCookie(event.target.value)}
           />
           <small>若需高品质音源，请粘贴网易云 VIP Cookie，服务器会将其附加到请求头。</small>
+        </section>
+        <section className="cookie-box">
+          <label htmlFor="bili-cookie">Bilibili Cookie（可选）</label>
+          <textarea
+            id="bili-cookie"
+            value={biliCookie}
+            placeholder="在此粘贴 B站 Cookie（提高清晰度与可用性）"
+            onChange={(e) => setBiliCookie(e.target.value)}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={updateBiliCookie}>更新 Cookie</button>
+            <button type="button" onClick={refreshBiliCookie}>刷新 Cookie</button>
+            <button type="button" onClick={clearBiliCache}>清理 B站缓存</button>
+          </div>
         </section>
       </header>
 

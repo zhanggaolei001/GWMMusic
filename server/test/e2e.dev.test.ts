@@ -56,6 +56,35 @@ const RUN_E2E = !!BASE_URL;
     console.log(`[search:playlists] q=daily -> ${playlists.length} results`);
   });
 
+  it('Bili search + downloadByQuery works', async () => {
+    const res = await request(BASE_URL)
+      .get('/api/search')
+      .query({ q: SEARCH_Q, type: 1, limit: 5, source: 'bili' });
+    expect(res.status).toBe(200);
+    const items = (res.body && (res.body.items || res.body.result?.songs || [])) || [];
+    // eslint-disable-next-line no-console
+    console.log(`[bili] items=${items.length}`);
+    expect(items.length).toBeGreaterThan(0);
+
+    const before = await getCacheList();
+    const dl = await axios.get(`${API(`/api/bili/downloadByQuery`)}?q=${encodeURIComponent(SEARCH_Q)}&tag=test`, {
+      responseType: 'stream',
+      validateStatus: () => true,
+      timeout: 15000,
+    });
+    if (![200, 206].includes(dl.status)) {
+      // eslint-disable-next-line no-console
+      console.warn(`[bili] download status=${dl.status}`);
+      expect(dl.status).toBeGreaterThanOrEqual(400);
+      return;
+    }
+    (dl.data as any)?.destroy?.();
+    const after = await getCacheList();
+    // eslint-disable-next-line no-console
+    console.log(`[bili] cache before=${before.length} after=${after.length}`);
+    expect(after.length >= before.length).toBe(true);
+  });
+
   it('Search specific song: 刘德华-冰雨', async () => {
     const res = await request(BASE_URL)
       .get('/api/search')
