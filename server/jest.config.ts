@@ -5,17 +5,21 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/test'],
   testMatch: ['**/?(*.)+(spec|test).ts'],
+  // Ignore E2E tests by default; run them via dedicated scripts
+  testPathIgnorePatterns: ['<rootDir>/test/.*e2e.*\\.test\\.ts$'],
   moduleFileExtensions: ['ts', 'tsx', 'js'],
   clearMocks: true,
   verbose: true,
   moduleNameMapper: {
     '^(.*)\\.(css|less|scss|sass)$': '<rootDir>/test/__mocks__/styleMock.ts',
   },
-  // Ensure Jest uses a TS config that includes Node + Jest types for tests
-  globals: {
-    'ts-jest': {
-      tsconfig: '<rootDir>/tsconfig.test.json',
-    },
+  transform: {
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: '<rootDir>/tsconfig.test.json',
+      },
+    ],
   },
 };
 
