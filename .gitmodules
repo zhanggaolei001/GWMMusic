@@ -1,4 +1,4 @@
 [submodule "vendor"]
-	path = vendor
-	url = file:///D:/zgl/tmp/GWM/music_api
-	branch = main
+    path = vendor
+    url = https://gitlab.com/zhanggaolei001/music_api.git
+    branch = main
