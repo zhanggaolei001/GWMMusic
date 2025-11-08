@@ -4,7 +4,7 @@ import mime from "mime-types";
 import { AudioCache } from "./audioCache";
 import { NeteaseClient, NeteaseRequestOptions } from "./neteaseClient";
 import { config } from "../utils/config";
-import { fetchAndCacheFromBiliByKeywords } from "./biliService";
+import { fetchAndCacheFromBiliWithOptions } from "./biliService";
 
 interface FetchParams {
   cache: AudioCache;
@@ -44,11 +44,13 @@ export async function fetchAndCacheSong({
       const primaryArtist = song?.ar?.[0]?.name as string | undefined;
       const keywords = [title, primaryArtist].filter(Boolean).join(" ") || String(songId);
 
-      return fetchAndCacheFromBiliByKeywords({
+      return fetchAndCacheFromBiliWithOptions({
         cache,
         tag,
         songId,
         keywords,
+        desiredName: title,
+        client,
       });
     } catch (e) {
       throw new Error("Failed to resolve song stream URL (netease) and fallback (bili) also failed");
