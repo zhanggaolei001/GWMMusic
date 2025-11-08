@@ -50,6 +50,7 @@ export async function fetchAndCacheSong({
         songId,
         keywords,
         desiredName: title,
+        desiredArtist: primaryArtist,
         client,
       });
     } catch (e) {

@@ -255,10 +255,11 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
   songId: number;
   keywords: string;
   desiredName?: string;
+  desiredArtist?: string;
   format?: string;
   client?: NeteaseClient;
 }) {
-  const { cache, tag, songId, keywords, desiredName, format, client } = options;
+  const { cache, tag, songId, keywords, desiredName, desiredArtist, format, client } = options;
   const entry = await fetchAndCacheFromBiliByKeywords({ cache, tag, songId, keywords, format });
 
   // Prepare candidate names for matching
@@ -343,8 +344,43 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
     }
   }
 
-  if (desiredName) {
-    entry.metadata.title = desiredName;
+  // As a final step, if caller provided desired NetEase naming, enforce it
+  if (desiredName || desiredArtist) {
+    entry.metadata.title = desiredName || entry.metadata.title;
+    if (desiredArtist) entry.metadata.artists = [desiredArtist];
+  }
+
+  // Optional: MusicBrainz fallback enrichment when NetEase didn't help
+  if ((!entry.metadata.artists || entry.metadata.artists.length === 0) && (!entry.metadata.title || entry.metadata.title === keywords)) {
+    try {
+      const useMb = (process.env.BILI_MB_FALLBACK || '1') !== '0';
+      if (useMb) {
+        const ua = process.env.MB_USER_AGENT || 'GWMMusic/0.1 (+https://github.com/zhanggaolei001/GWMMusic)';
+        const qlist = Array.from(new Set(candidates));
+        let best: any | undefined; let bestScore = 0;
+        for (const q of qlist) {
+          const resp = await axios.get('https://musicbrainz.org/ws/2/recording', {
+            params: { query: q, fmt: 'json', limit: 5 },
+            headers: { 'User-Agent': ua, 'Accept': 'application/json' },
+            timeout: 8000,
+          });
+          const recs: any[] = (resp.data && resp.data.recordings) || [];
+          for (const r of recs) {
+            const score = typeof r.score === 'number' ? r.score : 0;
+            if (score > bestScore) { bestScore = score; best = r; }
+          }
+          if (bestScore >= 80) break;
+        }
+        if (best) {
+          const artist = Array.isArray(best['artist-credit']) && best['artist-credit'][0]?.name ? String(best['artist-credit'][0].name) : undefined;
+          const titleMb = typeof best.title === 'string' ? best.title : undefined;
+          if (artist) entry.metadata.artists = [artist];
+          if (titleMb) entry.metadata.title = titleMb;
+        }
+      }
+    } catch {
+      // ignore MB failures
+    }
   }
   return entry;
 }
