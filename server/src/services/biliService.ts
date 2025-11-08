@@ -1,5 +1,6 @@
 import axios from "axios";
 import mime from "mime-types";
+import { config } from "../utils/config";
 
 import { AudioCache } from "./audioCache";
 import type { NeteaseClient } from "./neteaseClient";
@@ -132,7 +133,7 @@ export async function fetchAndCacheFromBiliByKeywords({ cache, tag, songId, keyw
   const mimeTypeHeader = (audioResponse.headers["content-type"] as string) || "audio/mp4";
   const extFromHeader = (mime.extension(mimeTypeHeader) || "m4a").toString();
 
-  const chosenFormat = format || process.env.BILI_TARGET_FORMAT || 'original';
+  const chosenFormat = format || config.bili.targetFormat || 'original';
   console.info(`[bili] transcode format=${chosenFormat}`);
   const transcoded = await maybeTranscode(audioResponse.data, chosenFormat);
 
@@ -344,8 +345,8 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
     }
   }
 
-  // As a final step, if caller provided desired NetEase naming, enforce it
-  if (desiredName || desiredArtist) {
+  // As a final step, if caller provided desired NetEase naming, enforce it (configurable)
+  if (config.features.forceNeteaseNaming && (desiredName || desiredArtist)) {
     entry.metadata.title = desiredName || entry.metadata.title;
     if (desiredArtist) entry.metadata.artists = [desiredArtist];
   }
@@ -353,9 +354,9 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
   // Optional: MusicBrainz fallback enrichment when NetEase didn't help
   if ((!entry.metadata.artists || entry.metadata.artists.length === 0) && (!entry.metadata.title || entry.metadata.title === keywords)) {
     try {
-      const useMb = (process.env.BILI_MB_FALLBACK || '1') !== '0';
+      const useMb = config.features.mbFallback;
       if (useMb) {
-        const ua = process.env.MB_USER_AGENT || 'GWMMusic/0.1 (+https://github.com/zhanggaolei001/GWMMusic)';
+        const ua = config.features.mbUserAgent || 'GWMMusic/0.1 (+https://github.com/zhanggaolei001/GWMMusic)';
         const qlist = Array.from(new Set(candidates));
         let best: any | undefined; let bestScore = 0;
         for (const q of qlist) {
