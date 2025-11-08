@@ -6,6 +6,7 @@ import { parseFile } from "music-metadata";
 import mime from "mime-types";
 import * as NodeID3 from "node-id3";
 import { config } from "../utils/config";
+import { CacheIndex } from "./cacheIndex";
 
 export interface CacheMetadata {
   id: number;
@@ -70,15 +71,18 @@ export class AudioCache {
   private readonly baseDir: string;
   private readonly maxSizeBytes: number;
   private readonly ttlMs: number;
+  private index?: CacheIndex;
 
   constructor(options: { baseDir: string; maxSizeBytes: number; ttlMs: number }) {
     this.baseDir = options.baseDir;
     this.maxSizeBytes = Math.max(options.maxSizeBytes, 0);
     this.ttlMs = Math.max(options.ttlMs, 0);
+    this.index = new CacheIndex(this.baseDir);
   }
 
   async init(): Promise<void> {
     await fse.ensureDir(this.baseDir);
+    try { await this.index?.init(); } catch { /* ignore index init failures */ }
   }
 
   private legacyPaths(tag: string, songId: number) {
@@ -153,6 +157,7 @@ export class AudioCache {
     if (!existing) return null;
     existing.metadata.lastAccessedAt = new Date().toISOString();
     await fse.writeJSON(existing.paths.metadataPath, existing.metadata, { spaces: 2 });
+    try { this.index?.touch(existing.metadata.tag, existing.metadata.id, existing.metadata.lastAccessedAt); } catch {}
     return {
       audioPath: existing.paths.audioPath,
       metadataPath: existing.paths.metadataPath,
@@ -169,6 +174,7 @@ export class AudioCache {
       fse.remove(resolved.songDir),
       fse.remove(resolved.indexPath),
     ]);
+    try { this.index?.remove(safeTag(tag), songId); } catch {}
   }
 
   async save(options: {
@@ -278,6 +284,25 @@ export class AudioCache {
       coverFile: finalMetadata.coverFile,
     });
 
+    try {
+      this.index?.upsert({
+        tag: finalMetadata.tag,
+        id: finalMetadata.id,
+        folder: finalMetadata.folder,
+        audioFile: finalMetadata.audioFile,
+        lyricsFile: finalMetadata.lyricsFile,
+        coverFile: finalMetadata.coverFile,
+        durationSeconds: finalMetadata.durationSeconds,
+        bitrateKbps: finalMetadata.bitrateKbps,
+        size: finalMetadata.size,
+        createdAt: finalMetadata.createdAt,
+        lastAccessedAt: finalMetadata.lastAccessedAt,
+        mimeType: finalMetadata.mimeType,
+        extension: finalMetadata.extension,
+        sourceUrl: finalMetadata.sourceUrl,
+      });
+    } catch {}
+
     const isLowQuality =
       stats.size < (config.cache.minSizeBytes ?? 0) ||
       ((bitrateKbps ?? 0) > 0 && (bitrateKbps ?? 0) < (config.cache.minBitrateKbps ?? 0));
@@ -298,9 +323,56 @@ export class AudioCache {
 
   async list(): Promise<CacheEntry[]> {
     const entries: CacheEntry[] = [];
-    if (!(await fse.pathExists(this.baseDir))) {
-      return entries;
-    }
+    if (!(await fse.pathExists(this.baseDir))) return entries;
+
+    // Prefer SQLite index if available and non-empty, without touching access time
+    try {
+      if (this.index && this.index.count() > 0) {
+        const rows = this.index.listAll();
+        for (const row of rows) {
+          const tagDir = path.join(this.baseDir, row.tag);
+          const songDir = path.join(tagDir, row.folder);
+          const audioPath = path.join(songDir, row.audioFile);
+          const metadataPath = path.join(songDir, "metadata.json");
+          const lyricsPath = row.lyricsFile ? path.join(songDir, row.lyricsFile) : path.join(songDir, `${path.parse(row.audioFile).name}.lrc`);
+          const coverPath = row.coverFile ? path.join(songDir, row.coverFile) : path.join(songDir, "cover.jpg");
+          if (!fs.existsSync(audioPath)) {
+            // Clean broken record
+            try { this.index.remove(row.tag, row.id); } catch {}
+            continue;
+          }
+          const metadata = {
+            id: row.id,
+            tag: row.tag,
+            title: undefined,
+            artists: undefined,
+            album: undefined,
+            sourceUrl: row.sourceUrl || "",
+            mimeType: row.mimeType || "audio/mpeg",
+            extension: row.extension || path.parse(row.audioFile).ext.replace(/^\./, "") || "bin",
+            size: row.size,
+            createdAt: row.createdAt,
+            lastAccessedAt: row.lastAccessedAt,
+            audioFile: row.audioFile,
+            lyricsFile: row.lyricsFile || undefined,
+            coverFile: row.coverFile || undefined,
+            folder: row.folder,
+            durationSeconds: row.durationSeconds ?? undefined,
+            bitrateKbps: row.bitrateKbps ?? undefined,
+          } as const;
+          entries.push({
+            audioPath,
+            metadataPath,
+            lyricsPath: fs.existsSync(lyricsPath) ? lyricsPath : undefined,
+            coverPath: fs.existsSync(coverPath) ? coverPath : undefined,
+            metadata: { ...metadata },
+          });
+        }
+        return entries;
+      }
+    } catch {}
+
+    // Fallback to legacy filesystem scan (may touch access time through get())
     const tags = await fse.readdir(this.baseDir);
     for (const tag of tags) {
       const tagDir = path.join(this.baseDir, tag);
@@ -376,6 +448,21 @@ export class AudioCache {
 
   private async ensureCapacity(): Promise<void> {
     if (this.maxSizeBytes === 0) return;
+    try {
+      if (this.index && this.index.count() > 0) {
+        let total = this.index.totalSize();
+        if (total <= this.maxSizeBytes) return;
+        const victims = this.index.listOldestFirst();
+        for (const v of victims) {
+          if (total <= this.maxSizeBytes) break;
+          await this.remove(v.tag, v.id);
+          total -= v.size;
+        }
+        return;
+      }
+    } catch {}
+
+    // Fallback without index (may be slower and touches access time)
     const entries = await this.list();
     let total = entries.reduce((acc, entry) => acc + entry.metadata.size, 0);
     if (total <= this.maxSizeBytes) return;
