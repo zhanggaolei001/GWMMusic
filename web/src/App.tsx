@@ -1,5 +1,6 @@
 ﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, setApiCookie } from "./lib/api";
+import { MdPlayArrow, MdFileDownload, MdPlaylistAdd, MdSkipNext, MdDelete, MdSettings, MdRefresh, MdMoreVert } from "react-icons/md";
 
 type TabKey = "tracks" | "albums" | "playlist" | "cache";
 
@@ -143,6 +144,8 @@ const App = () => {
   const [albumResults, setAlbumResults] = useState<AlbumSummary[]>([]);
   const [albumDetail, setAlbumDetail] = useState<AlbumDetail | null>(null);
   const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
+  // Dropdown state for cache table rows
+  const [openCacheMenu, setOpenCacheMenu] = useState<string | null>(null);
 
   const [health, setHealth] = useState<{ status: string; cacheDir: string } | null>(null);
   // Download dialog (mobile-friendly)
@@ -201,6 +204,18 @@ const App = () => {
       .get("/health")
       .then((res) => setHealth(res.data))
       .catch(() => setHealth(null));
+  }, []);
+
+  // Close cache dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: any) => {
+      const el = e.target as HTMLElement;
+      if (!el.closest?.('[data-cache-menu-root="true"]')) {
+        setOpenCacheMenu(null);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
   }, []);
 
   const fetchCache = () => {
@@ -662,8 +677,7 @@ const App = () => {
                 <th>大小</th>
                 <th>时长</th>
                 <th>码率</th>
-                <th>最近访问</th>
-                <th>备注</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -676,22 +690,28 @@ const App = () => {
                       {entry.album ? ` · ${entry.album}` : ""}
                     </div>
                     <div className="song-meta small">{entry.audioFile}</div>
-                    <div className="actions">
-                      <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/stream?tag=${encodeURIComponent(entry.tag)}`; setAudioSrc(url); setAudioKey((k) => k + 1); }}>播放</button>
-                      <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/download?tag=${encodeURIComponent(entry.tag)}&filename=${encodeURIComponent(entry.audioFile)}`; window.open(url, "_blank"); }}>下载</button>
-                      <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => prev.find((p) => p.id === item.id) ? prev : [...prev, item]); }}>加入播放列表</button>
-                      <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => { if (prev.find((p) => p.id === item.id)) return prev; const next = [...prev]; next.splice(1, 0, item); return next; }); }}>下一首播放</button>
-                      <button onClick={async () => { if (!window.confirm(`删除缓存：${entry.title || entry.audioFile}?`)) return; try { await api.delete(`/cache/${encodeURIComponent(entry.tag)}/${entry.id}`); } finally { fetchCache(); } }}>删除</button>
-                    </div>
                   </td>
                   <td>{entry.tag}</td>
                   <td>{formatBytes(entry.size)}</td>
                   <td>{formatPlaybackDuration(entry.durationSeconds)}</td>
                   <td>{entry.bitrateKbps ? `${entry.bitrateKbps} kbps` : "—"}</td>
-                  <td>{new Date(entry.lastAccessedAt).toLocaleString()}</td>
                   <td>
-                    {entry.hasLyrics && <span className="badge">歌词</span>}
-                    {entry.hasCover && <span className="badge">封面</span>}
+                    <div className="row-actions" data-cache-menu-root="true" style={{ position: 'relative', display: 'inline-block' }}>
+                      <button className="icon-button" aria-haspopup="menu" aria-expanded={openCacheMenu === `${entry.tag}-${entry.id}`}
+                        onClick={(e) => { e.stopPropagation(); setOpenCacheMenu((prev) => prev === `${entry.tag}-${entry.id}` ? null : `${entry.tag}-${entry.id}`); }}
+                        title="More actions">
+                        <MdMoreVert />
+                      </button>
+                      {openCacheMenu === `${entry.tag}-${entry.id}` && (
+                        <div className="dropdown-menu">
+                          <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/stream?tag=${encodeURIComponent(entry.tag)}`; setAudioSrc(url); setAudioKey((k) => k + 1); setOpenCacheMenu(null); }}>Play</button>
+                          <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/download?tag=${encodeURIComponent(entry.tag)}&filename=${encodeURIComponent(entry.audioFile)}`; window.open(url, "_blank"); setOpenCacheMenu(null); }}>Download</button>
+                          <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => prev.find((p) => p.id === item.id) ? prev : [...prev, item]); setOpenCacheMenu(null); }}>Add to Playlist</button>
+                          <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => { if (prev.find((p) => p.id === item.id)) return prev; const next = [...prev]; next.splice(1, 0, item); return next; }); setOpenCacheMenu(null); }}>Play Next</button>
+                          <button onClick={async () => { if (!window.confirm(`Delete cache: ${entry.title || entry.audioFile}?`)) return; try { await api.delete(`/cache/${encodeURIComponent(entry.tag)}/${entry.id}`); } finally { setOpenCacheMenu(null); fetchCache(); } }}>Delete</button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -769,3 +789,7 @@ const App = () => {
 };
 
 export default App;
+
+
+
+

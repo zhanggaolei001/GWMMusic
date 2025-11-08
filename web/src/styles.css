@@ -262,12 +262,57 @@ main {
   border-bottom: 1px solid rgba(148, 163, 184, 0.3);
 }
 
+/* Hide columns: 6 = 最近访问, 7 = 备注 */
+.cache-table th:nth-child(6),
+.cache-table td:nth-child(6),
+.cache-table th:nth-child(7),
+.cache-table td:nth-child(7) {
+  display: none;
+}
+
+/* Hide the inline row-actions in the first column; we use the last column */
+.cache-table td:first-child .row-actions { display: none; }
+
+/* Hide legacy wide action buttons in cache rows */
+.cache-table td .actions {
+  display: none;
+}
+
+/* Compact dropdown actions */
+.row-actions .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid rgba(148,163,184,0.35);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15,23,42,0.15);
+  min-width: 160px;
+  padding: 0.25rem;
+  z-index: 40;
+}
+
+.row-actions .dropdown-menu button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.row-actions .dropdown-menu button:hover {
+  background: rgba(14,165,233,0.12);
+}
+
 .player-footer {
   background: white;
   border-radius: 16px;
   padding: 1.25rem;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
-  margin-bottom: 2rem;
 }
 
 .player-footer audio {
@@ -392,7 +437,8 @@ main {
   }
 
   .app-shell {
-    padding-bottom: 5.5rem;
+    /* no extra space; player is fixed */
+    padding-bottom: 0;
   }
 
   main.tab-panels {
@@ -405,9 +451,7 @@ main {
     background: transparent;
   }
 
-  .player-footer {
-    margin-bottom: 4.5rem;
-  }
+  .player-footer { }
 }
 
 @media (min-width: 769px) {
@@ -558,7 +602,7 @@ main {
   --player-footer-height: 4.75rem;
 }
 
-.app-shell { padding-bottom: calc(var(--player-footer-height) + var(--bottom-nav-height) + 1rem); }
+.app-shell { padding-bottom: 0; }
 
 .player-footer {
   position: fixed;
