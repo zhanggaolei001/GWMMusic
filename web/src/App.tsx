@@ -393,7 +393,7 @@ const App = () => {
 
   const renderTabs = (position: "top" | "bottom") => (
     <nav className={`tabs tabs-${position}`}>
-      {tabs.map((tab) => (
+      {(['playlist','tracks','albums','cache'] as TabKey[]).map((k) => tabs.find(t => t.key === k)!).map((tab) => (
         <button
           key={tab.key}
           className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
@@ -410,6 +410,15 @@ const App = () => {
 
   return (
     <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-title">
+          <strong>GWM Music</strong>
+          {health && (
+            <small className="hero-status">{health.status} · {health.cacheDir}</small>
+          )}
+        </div>
+        <button className="icon-button" onClick={() => setShowSettings(true)} aria-label="设置">⚙️</button>
+      </header>
       <header className="hero">
         <div>
           <h1>GWM NetEase 音乐中心</h1>
@@ -699,6 +708,41 @@ const App = () => {
           </div>
         </section>
       </main>
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h3>设置</h3>
+              <button className="icon-button" onClick={() => setShowSettings(false)} aria-label="关闭">✖</button>
+            </header>
+            <section className="modal-section">
+              <label htmlFor="cookie">VIP Cookie（网易云）</label>
+              <textarea
+                id="cookie"
+                value={cookie}
+                placeholder="粘贴 MUSIC_U Cookie"
+                onChange={(event) => setCookie(event.target.value)}
+              />
+              <small>用于解锁 VIP 资源。仅保存在浏览器并通过请求头传给服务端。</small>
+            </section>
+            <section className="modal-section">
+              <label htmlFor="bili-cookie">Bilibili Cookie</label>
+              <textarea
+                id="bili-cookie"
+                value={biliCookie}
+                placeholder="粘贴 B站 Cookie（可选）"
+                onChange={(e) => setBiliCookie(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={updateBiliCookie}>更新 Cookie</button>
+                <button type="button" onClick={refreshBiliCookie}>刷新 Cookie</button>
+                <button type="button" onClick={clearBiliCache}>清除 B站缓存</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
 
       {renderTabs("bottom")}
 
