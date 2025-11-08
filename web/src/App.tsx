@@ -118,6 +118,10 @@ const App = () => {
   const [biliCookie, setBiliCookie] = useState<string>("");
   const [cacheEntries, setCacheEntries] = useState<CacheEntry[]>([]);
   const [cacheLoading, setCacheLoading] = useState(false);
+  const [cachePage, setCachePage] = useState(1);
+  const [cacheLimit, setCacheLimit] = useState(20);
+  const [cacheTotal, setCacheTotal] = useState(0);
+  const [cacheQuery, setCacheQuery] = useState("");
   const [playlistQueue, setPlaylistQueue] = useState<PlaylistItem[]>(() => {
     const stored = localStorage.getItem("gwm-playlist-queue");
     return stored ? (JSON.parse(stored) as PlaylistItem[]) : [];
@@ -191,16 +195,24 @@ const App = () => {
 
   const fetchCache = () => {
     setCacheLoading(true);
+    const params: any = { limit: cacheLimit, offset: (cachePage - 1) * cacheLimit };
+    if (tag && tag.trim()) params.tag = tag.trim();
+    if (cacheQuery && cacheQuery.trim()) params.q = cacheQuery.trim();
     api
-      .get<CacheEntry[]>("/cache")
-      .then((res) => setCacheEntries(res.data))
-      .catch(() => setCacheEntries([]))
+      .get<CacheEntry[]>("/cache", { params })
+      .then((res) => {
+        setCacheEntries(res.data);
+        const totalHeader = res.headers && (res.headers["x-total-count"] as any);
+        setCacheTotal(totalHeader ? parseInt(String(totalHeader), 10) || res.data.length : res.data.length);
+      })
+      .catch(() => { setCacheEntries([]); setCacheTotal(0); })
       .finally(() => setCacheLoading(false));
   };
 
   useEffect(() => {
-    fetchCache();
-  }, []);
+    if (activeTab === "cache") fetchCache();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, cachePage, cacheLimit]);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -645,6 +657,13 @@ const App = () => {
                       {entry.album ? ` · ${entry.album}` : ""}
                     </div>
                     <div className="song-meta small">{entry.audioFile}</div>
+                    <div className="actions">
+                      <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/stream?tag=${encodeURIComponent(entry.tag)}`; setAudioSrc(url); setAudioKey((k) => k + 1); }}>播放</button>
+                      <button onClick={() => { const url = `${API_BASE}/api/songs/${entry.id}/download?tag=${encodeURIComponent(entry.tag)}&filename=${encodeURIComponent(entry.audioFile)}`; window.open(url, "_blank"); }}>下载</button>
+                      <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => prev.find((p) => p.id === item.id) ? prev : [...prev, item]); }}>加入播放列表</button>
+                      <button onClick={() => { const item = { id: entry.id, name: entry.title || entry.audioFile, artists: entry.artists || ["Unknown"], album: entry.album, durationMs: (entry.durationSeconds || 0) * 1000 } as PlaylistItem; setPlaylistQueue((prev) => { if (prev.find((p) => p.id === item.id)) return prev; const next = [...prev]; next.splice(1, 0, item); return next; }); }}>下一首播放</button>
+                      <button onClick={async () => { if (!window.confirm(`删除缓存：${entry.title || entry.audioFile}?`)) return; try { await api.delete(`/cache/${encodeURIComponent(entry.tag)}/${entry.id}`); } finally { fetchCache(); } }}>删除</button>
+                    </div>
                   </td>
                   <td>{entry.tag}</td>
                   <td>{formatBytes(entry.size)}</td>
@@ -659,6 +678,25 @@ const App = () => {
               ))}
             </tbody>
           </table>
+          <div className="cache-pager" style={{ display:'flex', gap:8, justifyContent:'flex-end', alignItems:'center', marginTop:8, flexWrap:'wrap' }}>
+            <button onClick={() => setCachePage((p)=> Math.max(1,p-1))} disabled={cachePage<=1}>上一页</button>
+            <span>{cachePage} / {cacheLimit > 0 ? Math.max(1, Math.ceil((cacheTotal || cacheEntries.length)/cacheLimit)) : 1}</span>
+            <button onClick={() => setCachePage((p)=> p+1)} disabled={cacheLimit <= 0 || (cachePage >= Math.ceil((cacheTotal || cacheEntries.length)/cacheLimit))}>下一页</button>
+            <label>
+              每页
+              <select value={cacheLimit} onChange={(e)=> { setCachePage(1); setCacheLimit(parseInt((e.target as HTMLSelectElement).value,10));}}>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <label>
+              筛选
+              <input value={cacheQuery} onChange={(e)=> setCacheQuery((e.target as HTMLInputElement).value)} onKeyDown={(e)=> { if (e.key==='Enter'){ setCachePage(1); fetchCache(); }}} placeholder="标题/艺人/专辑" />
+            </label>
+            <button onClick={() => { setCachePage(1); fetchCache(); }} disabled={cacheLoading}>{cacheLoading ? '刷新中...' : '刷新'}</button>
+          </div>
         </section>
       </main>
 

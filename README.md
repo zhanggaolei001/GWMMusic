@@ -48,6 +48,11 @@ GWM/
   - `git submodule sync -- music_api`
   - `git -C music_api remote -v` should point to your remote
 
+## Docs
+
+- Cache Index: docs/cache-index.md
+- Metadata Naming & Enrichment: docs/metadata-naming.md
+
 ---
 
 ## 环境准备
