@@ -43,4 +43,4 @@ cache/
 *.tgz
 server/tmp-test-*
 
-music_api/
+# music_api is tracked as a git submodule
