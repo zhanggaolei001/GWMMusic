@@ -103,8 +103,17 @@ const devApiBase = () => {
 const API_BASE = import.meta.env.DEV ? devApiBase() : "";
 const AUDIO_BASE = `${API_BASE}/api/songs`;
 
+// Mobile-first bottom navigation labels and order
+const tabLabels: Record<TabKey, string> = {
+  playlist: "播放列表",
+  tracks: "歌曲",
+  albums: "专辑",
+  cache: "缓存",
+};
+const tabOrder: TabKey[] = ["playlist", "tracks", "albums", "cache"];
+
 const App = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("tracks");
+  const [activeTab, setActiveTab] = useState<TabKey>("playlist");
   const [searchTerm, setSearchTerm] = useState("");
   const [source, setSource] = useState<string>(() => localStorage.getItem("gwm-source") || "netease");
   const [searchResults, setSearchResults] = useState<SongSummary[]>([]);
@@ -118,6 +127,7 @@ const App = () => {
   const [biliCookie, setBiliCookie] = useState<string>("");
   const [cacheEntries, setCacheEntries] = useState<CacheEntry[]>([]);
   const [cacheLoading, setCacheLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [cachePage, setCachePage] = useState(1);
   const [cacheLimit, setCacheLimit] = useState(20);
   const [cacheTotal, setCacheTotal] = useState(0);
@@ -335,7 +345,7 @@ const App = () => {
     setPendingSong(null);
   };
 
-  const handleDownload = (song: { id: number; bvid?: string }) => {
+  const handleDownload = (song: SongSummary) => {
     if (source === "bili" && song.bvid) {
       const suggested = [searchTerm, ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []), song.name].filter(Boolean);
       const input = window.prompt(`输入要保存的文件名（不含扩展名）：\n建议：\n1) ${suggested[0] || ''}\n2) ${suggested[1] || ''}\n3) ${suggested[2] || ''}`, suggested[0] || song.name || "");
@@ -393,14 +403,14 @@ const App = () => {
 
   const renderTabs = (position: "top" | "bottom") => (
     <nav className={`tabs tabs-${position}`}>
-      {(['playlist','tracks','albums','cache'] as TabKey[]).map((k) => tabs.find(t => t.key === k)!).map((tab) => (
+      {tabOrder.map((k) => (
         <button
-          key={tab.key}
-          className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
-          onClick={() => setActiveTab(tab.key)}
+          key={k}
+          className={`tab-button ${activeTab === k ? "active" : ""}`}
+          onClick={() => setActiveTab(k)}
           type="button"
         >
-          <span>{tab.label}</span>
+          <span>{tabLabels[k]}</span>
         </button>
       ))}
     </nav>
