@@ -551,3 +551,33 @@ main {
     display: none;
   }
 }
+
+/* Overrides and additions for docked player + bottom nav spacing */
+:root {
+  --bottom-nav-height: 0rem;
+  --player-footer-height: 4.75rem;
+}
+
+.app-shell { padding-bottom: calc(var(--player-footer-height) + var(--bottom-nav-height) + 1rem); }
+
+.player-footer {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  z-index: 21;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(226,232,240,0.8);
+  box-shadow: 0 -10px 24px rgba(15,23,42,0.08);
+  padding: 0.5rem 1rem;
+  min-height: var(--player-footer-height);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.player-footer h3 { margin: 0; font-size: 0.95rem; color: #334155; }
+.player-footer audio { width: 100%; }
+
+@media (max-width: 768px) {
+  :root { --bottom-nav-height: 3.25rem; }
+}
