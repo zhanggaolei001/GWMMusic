@@ -28,7 +28,7 @@
     "morgan": "1.10.0",
     "multer": "1.4.5-lts.1",
     "music-metadata": "^7.14.0",
-    "netease-cloud-music-api-alger": "file:../vendor",
+    "netease-cloud-music-api-alger": "file:../music_api",
     "node-id3": "0.2.6"
   },
   "devDependencies": {

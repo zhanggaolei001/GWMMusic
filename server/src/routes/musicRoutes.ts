@@ -8,11 +8,12 @@ import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient"
 import { config, defaultTag } from "../utils/config";
 import { fetchAndCacheSong } from "../services/songService";
 import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBiliByBvidCid, resolveFirstCid, fetchAndCacheFromBiliWithOptions } from "../services/biliService";
-// vendor bilibili helpers
+import { getDefaultCookie, setDefaultCookie, getCookieStatus, clearDefaultCookie } from "../services/neteaseCookie";
+// music_api bilibili helpers
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../vendor/util/biliApiHandler");
+const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../music_api/util/biliApiHandler");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { cache: biliCache } = require("../../../vendor/util/biliRequest");
+const { cache: biliCache } = require("../../../music_api/util/biliRequest");
 
 type MusicDeps = {
   cache: AudioCache;
@@ -22,7 +23,7 @@ type MusicDeps = {
 const inflightDownloads = new Map<string, Promise<CacheEntry>>();
 
 const buildRequestOptions = (req: Request): NeteaseRequestOptions => ({
-  cookie: req.get("x-netease-cookie") || config.netease.cookie,
+  cookie: req.get("x-netease-cookie") || getDefaultCookie() || config.netease.cookie,
   realIP: req.get("x-real-ip") || config.netease.realIp,
   proxy: config.netease.proxy,
   timeout: config.netease.timeoutMs,
@@ -332,9 +333,39 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       biliCache.wbiKeys = null;
       biliCache.lastWbiKeysFetchTime = 0;
       // remove cookie cache file
-      const cookieCache = path.join(__dirname, "../../../vendor/cache/bilibili_cookies.json");
+      const cookieCache = path.join(__dirname, "../../../music_api/cache/bilibili_cookies.json");
       try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch {}
       res.json({ code: 0, message: "Bilibili cache cleared" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // NetEase cookie management (persist for your own use)
+  router.post("/netease/update-cookie", async (req, res, next) => {
+    try {
+      const cookie = String(req.body?.cookie || "").trim();
+      if (!cookie) return next(createHttpError(400, "Missing cookie"));
+      await setDefaultCookie(cookie);
+      res.json({ code: 0, message: "NetEase cookie updated" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/netease/cookie", async (_req, res, next) => {
+    try {
+      const status = getCookieStatus();
+      res.json({ code: 0, ...status });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/netease/clear-cookie", async (_req, res, next) => {
+    try {
+      await clearDefaultCookie();
+      res.json({ code: 0, message: "NetEase cookie cleared" });
     } catch (error) {
       next(error);
     }

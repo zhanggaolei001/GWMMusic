@@ -5,6 +5,7 @@ import { AudioCache } from "../services/audioCache";
 import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient";
 import { fetchAndCacheSong } from "../services/songService";
 import { config, defaultTag } from "../utils/config";
+import { getDefaultCookie } from "../services/neteaseCookie";
 
 interface AlbumDeps {
   cache: AudioCache;
@@ -12,7 +13,7 @@ interface AlbumDeps {
 }
 
 const buildRequestOptions = (req: Request): NeteaseRequestOptions => ({
-  cookie: req.get("x-netease-cookie") || config.netease.cookie,
+  cookie: req.get("x-netease-cookie") || getDefaultCookie() || config.netease.cookie,
   realIP: req.get("x-real-ip") || config.netease.realIp,
   proxy: config.netease.proxy,
   timeout: config.netease.timeoutMs,

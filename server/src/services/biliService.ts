@@ -4,10 +4,10 @@ import mime from "mime-types";
 import { AudioCache } from "./audioCache";
 import type { NeteaseClient } from "./neteaseClient";
 
-// Use vendor's Bili request util to handle WBI signature and headers
-// The vendor folder is adjacent to server (../vendor)
+// Use music_api's Bili request util to handle WBI signature and headers
+// The music_api folder is adjacent to server (../music_api)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { biliRequest } = require("../../../vendor/util/biliRequest");
+const { biliRequest } = require("../../../music_api/util/biliRequest");
 
 export interface BiliFetchParams {
   cache: AudioCache;

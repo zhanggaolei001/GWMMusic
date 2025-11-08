@@ -42,3 +42,5 @@ cache/
 *.tsbuildinfo
 *.tgz
 server/tmp-test-*
+
+music_api/
