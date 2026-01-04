@@ -43,21 +43,6 @@ body {
   color: #475569;
 }
 
-.cookie-box {
-  flex: 0 0 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.cookie-box textarea {
-  min-height: 120px;
-  resize: vertical;
-  padding: 0.75rem;
-  border-radius: 12px;
-  border: 1px solid #cbd5f5;
-  font-family: monospace;
-}
 
 main {
   display: grid;
@@ -209,17 +194,17 @@ main {
   .hero {
     flex-direction: column;
   }
-  .cookie-box {
-    width: 100%;
-  }
+
   .song-list li {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
   }
+
   .actions {
     width: 100%;
   }
+
   .actions button {
     flex: 1;
   }
@@ -299,9 +284,6 @@ main {
 @media (max-width: 900px) {
   .hero {
     flex-direction: column;
-  }
-  .cookie-box {
-    width: 100%;
   }
 }
 

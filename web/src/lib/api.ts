@@ -1,13 +1,6 @@
 ﻿import axios from "axios";
 
+const runtimeApiBase = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE || "");
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: `${runtimeApiBase}/api`,
 });
-
-export const setApiCookie = (cookie: string | null) => {
-  if (cookie && cookie.trim() !== "") {
-    api.defaults.headers.common["x-netease-cookie"] = cookie;
-  } else {
-    delete api.defaults.headers.common["x-netease-cookie"];
-  }
-};
