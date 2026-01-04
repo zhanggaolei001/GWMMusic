@@ -1,5 +1,5 @@
 ﻿import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, setApiCookie } from "./lib/api";
+import { api } from "./lib/api";
 
 type TabKey = "tracks" | "albums" | "playlist" | "cache";
 
@@ -100,10 +100,15 @@ const devApiBase = () => {
   const { protocol, hostname } = window.location;
   return `${protocol}//${hostname}:4000`;
 };
-const API_BASE = import.meta.env.DEV ? devApiBase() : "";
+const API_BASE = import.meta.env.DEV ? devApiBase() : import.meta.env.VITE_API_BASE || "";
 const AUDIO_BASE = `${API_BASE}/api/songs`;
 
 const App = () => {
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    const v = localStorage.getItem("gwm-nav-collapsed");
+    return v === "1";
+  });
+  const [miniPlayer, setMiniPlayer] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabKey>("tracks");
   const [searchTerm, setSearchTerm] = useState("");
   const [source, setSource] = useState<string>(() => localStorage.getItem("gwm-source") || "netease");
@@ -114,8 +119,6 @@ const App = () => {
   const [bitrate, setBitrate] = useState<string>("999000");
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [audioKey, setAudioKey] = useState(0);
-  const [cookie, setCookie] = useState<string>(() => localStorage.getItem("gwm-netease-cookie") || "");
-  const [biliCookie, setBiliCookie] = useState<string>("");
   const [cacheEntries, setCacheEntries] = useState<CacheEntry[]>([]);
   const [cacheLoading, setCacheLoading] = useState(false);
   const [playlistQueue, setPlaylistQueue] = useState<PlaylistItem[]>(() => {
@@ -139,48 +142,17 @@ const App = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
-    setApiCookie(cookie);
-    if (cookie.trim()) {
-      localStorage.setItem("gwm-netease-cookie", cookie);
-    } else {
-      localStorage.removeItem("gwm-netease-cookie");
-    }
-  }, [cookie]);
-
-  const updateBiliCookie = async () => {
-    try {
-      await api.post("/bilibili/update-cookie", { cookie: biliCookie });
-      alert("Bilibili Cookie 已更新");
-    } catch (e: any) {
-      alert(e?.response?.data?.message || e.message || "更新失败");
-    }
-  };
-
-  const refreshBiliCookie = async () => {
-    try {
-      await api.get("/bilibili/refresh-cookie");
-      alert("Bilibili Cookie 已刷新");
-    } catch (e: any) {
-      alert(e?.response?.data?.message || e.message || "刷新失败");
-    }
-  };
-
-  const clearBiliCache = async () => {
-    try {
-      await api.get("/bilibili/clear-cache");
-      alert("Bilibili 缓存已清理");
-    } catch (e: any) {
-      alert(e?.response?.data?.message || e.message || "清理失败");
-    }
-  };
-
-  useEffect(() => {
     localStorage.setItem("gwm-tag", tag);
   }, [tag]);
 
   useEffect(() => {
     localStorage.setItem("gwm-playlist-queue", JSON.stringify(playlistQueue));
   }, [playlistQueue]);
+
+  useEffect(() => {
+    localStorage.setItem("gwm-nav-collapsed", navCollapsed ? "1" : "0");
+    document.documentElement.classList.toggle("nav-collapsed", navCollapsed);
+  }, [navCollapsed]);
 
   useEffect(() => {
     api
@@ -294,18 +266,22 @@ const App = () => {
     setTimeout(fetchCache, 2000);
   };
 
-  const openDownloadDialog = (song: any) => {
-    setPendingSong(song as any);
-    const base = [searchTerm, ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []), (song && song.name) || ""].filter(Boolean) as string[];
+  const openDownloadDialog = (song: SongSummary) => {
+    setPendingSong(song);
+    const base = [
+      searchTerm,
+      ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []),
+      song.name,
+    ].filter(Boolean) as string[];
     setSuggestions(base);
-    setFilenameInput(base[0] || (song && song.name) || "");
+    setFilenameInput(base[0] || song.name || "");
     setFormatInput("mp3");
     setShowDownloadDialog(true);
   };
 
   const confirmDownload = () => {
     if (!pendingSong) return;
-    const s: any = pendingSong;
+    const s = pendingSong;
     setShowDownloadDialog(false);
     if (source === "bili" && s.bvid) {
       const url = `${API_BASE}/api/bili/${encodeURIComponent(s.bvid)}/download?tag=${encodeURIComponent(tag)}&filename=${encodeURIComponent(filenameInput)}&format=${encodeURIComponent(formatInput)}`;
@@ -323,7 +299,7 @@ const App = () => {
     setPendingSong(null);
   };
 
-  const handleDownload = (song: { id: number; bvid?: string }) => {
+  const handleDownload = (song: SongSummary) => {
     if (source === "bili" && song.bvid) {
       const suggested = [searchTerm, ...(searchTerm.includes(" ") ? searchTerm.split(/\s+/).filter(Boolean) : []), song.name].filter(Boolean);
       const input = window.prompt(`输入要保存的文件名（不含扩展名）：\n建议：\n1) ${suggested[0] || ''}\n2) ${suggested[1] || ''}\n3) ${suggested[2] || ''}`, suggested[0] || song.name || "");
@@ -406,30 +382,6 @@ const App = () => {
             <small className="hero-status">服务状态：{health.status} · 缓存目录：{health.cacheDir}</small>
           )}
         </div>
-        <section className="cookie-box">
-          <label htmlFor="cookie">VIP Cookie（可选）</label>
-          <textarea
-            id="cookie"
-            value={cookie}
-            placeholder="在此粘贴 MUSIC_U 等 Cookie"
-            onChange={(event) => setCookie(event.target.value)}
-          />
-          <small>若需高品质音源，请粘贴网易云 VIP Cookie，服务器会将其附加到请求头。</small>
-        </section>
-        <section className="cookie-box">
-          <label htmlFor="bili-cookie">Bilibili Cookie（可选）</label>
-          <textarea
-            id="bili-cookie"
-            value={biliCookie}
-            placeholder="在此粘贴 B站 Cookie（提高清晰度与可用性）"
-            onChange={(e) => setBiliCookie(e.target.value)}
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={updateBiliCookie}>更新 Cookie</button>
-            <button type="button" onClick={refreshBiliCookie}>刷新 Cookie</button>
-            <button type="button" onClick={clearBiliCache}>清理 B站缓存</button>
-          </div>
-        </section>
       </header>
 
       {renderTabs("top")}
