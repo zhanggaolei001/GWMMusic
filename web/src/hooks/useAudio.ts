@@ -20,6 +20,7 @@ export function useAudio(initialSrc: string | null = null): UseAudioControls {
     const [duration, setDuration] = useState(0);
     const [progress, setProgress] = useState(0);
     const srcRef = useRef<string | null>(initialSrc);
+    const loadingRef = useRef<boolean>(false);
 
     useEffect(() => {
         const a = audioRef.current;
@@ -28,6 +29,18 @@ export function useAudio(initialSrc: string | null = null): UseAudioControls {
             setCurrentTime(a.currentTime || 0);
             setDuration(a.duration || 0);
             setProgress((a.currentTime / (a.duration || 1)) * 100 || 0);
+        };
+        const onLoadStart = () => {
+            loadingRef.current = true;
+            try { console.debug('[audio] loadstart', a.currentSrc); } catch (e) { }
+        };
+        const onCanPlay = () => {
+            loadingRef.current = false;
+            try { console.debug('[audio] canplay', a.currentSrc); } catch (e) { }
+        };
+        const onAudioError = () => {
+            loadingRef.current = false;
+            try { console.warn('[audio] error', a.currentSrc); } catch (e) { }
         };
         const onPlay = () => setPlaying(true);
         const onPause = () => setPlaying(false);
@@ -38,6 +51,10 @@ export function useAudio(initialSrc: string | null = null): UseAudioControls {
         a.addEventListener('pause', onPause);
         a.addEventListener('ended', onEnd);
         a.addEventListener('loadedmetadata', onTime);
+        a.addEventListener('loadstart', onLoadStart);
+        a.addEventListener('canplay', onCanPlay);
+        a.addEventListener('canplaythrough', onCanPlay);
+        a.addEventListener('error', onAudioError);
 
         return () => {
             a.removeEventListener('timeupdate', onTime);
@@ -45,32 +62,40 @@ export function useAudio(initialSrc: string | null = null): UseAudioControls {
             a.removeEventListener('pause', onPause);
             a.removeEventListener('ended', onEnd);
             a.removeEventListener('loadedmetadata', onTime);
+            a.removeEventListener('loadstart', onLoadStart);
+            a.removeEventListener('canplay', onCanPlay);
+            a.removeEventListener('canplaythrough', onCanPlay);
+            a.removeEventListener('error', onAudioError);
         };
     }, [audioRef.current]);
 
-    useEffect(() => {
-        const a = audioRef.current;
-        if (!a) return;
-        if (srcRef.current) {
-            try { a.load(); } catch (e) { }
-            try {
-                const p = a.play();
-                if (p && typeof (p as any).catch === 'function') (p as any).catch(() => { });
-            } catch (e) { }
-        } else {
-            try { a.pause(); } catch (e) { }
-        }
-    }, [audioRef.current, srcRef.current]);
+    // NOTE: loading/playing is explicitly handled by `setSrc` and the
+    // Player imperative `playAndSetSrc` to avoid duplicate `load()`/`play()`
+    // calls which can provoke multiple network requests. Do not auto-play
+    // from here based on `srcRef` changes.
 
     const setSrc = (s: string | null) => {
+        // if source unchanged, avoid re-setting to prevent duplicate network requests
+        if (srcRef.current === s) return;
+
+        const a = audioRef.current;
+        // if we are already loading the same src, ignore
+        if (a && s && loadingRef.current && srcRef.current === s) return;
+
+        // update desired src
         srcRef.current = s;
-        if (audioRef.current) {
-            if (s) {
-                audioRef.current.src = s as any;
-            } else {
-                try { audioRef.current.removeAttribute('src'); } catch (e) { }
-                try { audioRef.current.pause(); } catch (e) { }
-            }
+        if (!a) return;
+        if (s) {
+            try {
+                // set src and attempt to load once; mark loading flag
+                loadingRef.current = true;
+                a.src = s as any;
+            } catch (e) { }
+            try { a.load(); } catch (e) { }
+        } else {
+            try { a.removeAttribute('src'); } catch (e) { }
+            try { a.pause(); } catch (e) { }
+            loadingRef.current = false;
         }
     };
 
@@ -79,7 +104,7 @@ export function useAudio(initialSrc: string | null = null): UseAudioControls {
         if (!a) return;
         try {
             const p = a.play();
-            if (p && typeof (p as any).catch === 'function') (p as any).catch(() => { });
+            if (p && typeof (p as any).catch === 'function') (p as any).catch((err: any) => { console.error('audio.play() rejected', err); });
         } catch (e) { }
     };
 

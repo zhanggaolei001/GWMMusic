@@ -16,6 +16,8 @@ export type PlayerHandle = {
 
 export const Player = forwardRef<PlayerHandle, Props>(({ audioSrc, audioKey, onEnded, onPlayStateChange, play, currentTrack }, ref) => {
     const { audioRef, playing, progress, currentTime, duration, play: playAudio, pause, toggle, setSrc, seek } = useAudio(null);
+    const lastPlaySrc = useRef<string | null>(null);
+    const lastPlayAt = useRef<number>(0);
 
     // sync external audioSrc prop into hook
     useEffect(() => {
@@ -25,14 +27,19 @@ export const Player = forwardRef<PlayerHandle, Props>(({ audioSrc, audioKey, onE
 
     useImperativeHandle(ref, () => ({
         async playAndSetSrc(src: string | null) {
+            const now = Date.now();
+            // debounce: ignore repeated calls to play same src within 500ms
+            if (src && lastPlaySrc.current === src && now - lastPlayAt.current < 500) return;
+            lastPlaySrc.current = src;
+            lastPlayAt.current = now;
             if (src) {
                 setSrc(src);
                 const a = audioRef.current;
                 if (a) {
                     try {
                         const p = a.play();
-                        if (p && typeof (p as any).catch === 'function') (p as any).catch(() => { });
-                    } catch (e) { }
+                        if (p && typeof (p as any).catch === 'function') (p as any).catch((err: any) => { console.error('audio.play() rejected', err); });
+                    } catch (e) { console.error('audio.play() threw', e); }
                 }
             } else {
                 setSrc(null);

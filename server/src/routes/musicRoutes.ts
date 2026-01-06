@@ -28,7 +28,7 @@ const buildRequestOptions = (req: Request): NeteaseRequestOptions => ({
   timeout: config.netease.timeoutMs,
 });
 
-const streamFromCache = (entry: CacheEntry, res: Response, attachment: boolean) => {
+const streamFromCache = (entry: CacheEntry, req: Request, res: Response, attachment: boolean) => {
   const disposition = attachment ? "attachment" : "inline";
   const filename = entry.metadata.audioFile;
   if (filename) {
@@ -36,8 +36,59 @@ const streamFromCache = (entry: CacheEntry, res: Response, attachment: boolean) 
   } else {
     res.setHeader("Content-Disposition", disposition);
   }
+
+  // Temporary diagnostic logging for repeated stream requests
+  const now = new Date().toISOString();
+  const rangeHeader = String(req.headers.range || "");
+  const ua = String(req.get("user-agent") || "");
+  console.log(`[stream] ${now} ${req.method} ${req.originalUrl} id=${entry.metadata.id} tag=${entry.metadata.tag} range=${rangeHeader || '<none>'} ip=${req.ip} ua=${ua}`);
+
+  const statSize = entry.metadata.size || 0;
+  res.setHeader("Accept-Ranges", "bytes");
+
+  if (rangeHeader) {
+    // parse "bytes=start-end"
+    const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+    if (!m) {
+      res.status(416).setHeader("Content-Range", `bytes */${statSize}`);
+      res.end();
+      return Promise.resolve();
+    }
+    const start = m[1] ? Math.max(0, parseInt(m[1], 10)) : 0;
+    const end = m[2] ? Math.min(statSize - 1, parseInt(m[2], 10)) : statSize - 1;
+    if (Number.isNaN(start) || Number.isNaN(end) || start > end || start >= statSize) {
+      res.status(416).setHeader("Content-Range", `bytes */${statSize}`);
+      res.end();
+      return Promise.resolve();
+    }
+    const chunkSize = end - start + 1;
+    console.log(`[stream] serving range ${start}-${end} (${chunkSize} bytes) for id=${entry.metadata.id}`);
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${statSize}`);
+    res.setHeader("Content-Length", String(chunkSize));
+    res.setHeader("Content-Type", entry.metadata.mimeType);
+
+    const readStream = fs.createReadStream(entry.audioPath, { start, end });
+    return new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        readStream.off("error", onError);
+        res.off("close", onClose);
+        res.off("finish", onClose);
+      };
+      const onError = (err: Error) => { cleanup(); console.error(`[stream] range read error id=${entry.metadata.id} err=${String(err)}`); reject(err); };
+      const onClose = () => { cleanup(); console.log(`[stream] range stream finished id=${entry.metadata.id}`); resolve(); };
+      readStream.on("error", onError);
+      res.once("close", onClose);
+      res.once("finish", onClose);
+      readStream.pipe(res).on("error", onError);
+    });
+  }
+
+  // no range - send full file
+  // full file serve
+  console.log(`[stream] serving full file size=${statSize} id=${entry.metadata.id}`);
   res.setHeader("Content-Type", entry.metadata.mimeType);
-  res.setHeader("Content-Length", entry.metadata.size.toString());
+  res.setHeader("Content-Length", String(statSize));
   const readStream = fs.createReadStream(entry.audioPath);
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
@@ -45,14 +96,8 @@ const streamFromCache = (entry: CacheEntry, res: Response, attachment: boolean) 
       res.off("close", onClose);
       res.off("finish", onClose);
     };
-    const onError = (err: Error) => {
-      cleanup();
-      reject(err);
-    };
-    const onClose = () => {
-      cleanup();
-      resolve();
-    };
+    const onError = (err: Error) => { cleanup(); console.error(`[stream] full read error id=${entry.metadata.id} err=${String(err)}`); reject(err); };
+    const onClose = () => { cleanup(); console.log(`[stream] full stream finished id=${entry.metadata.id}`); resolve(); };
     readStream.on("error", onError);
     res.once("close", onClose);
     res.once("finish", onClose);
@@ -77,7 +122,7 @@ async function serveSong(
 
   const cached = await deps.cache.get(tag, songId);
   if (cached) {
-    await streamFromCache(cached, res, attachment);
+    await streamFromCache(cached, req, res, attachment);
     if (cached.transient) {
       await deps.cache.remove(tag, songId).catch(() => undefined);
     }
@@ -100,7 +145,7 @@ async function serveSong(
     inflightDownloads.set(key, downloadPromise);
   }
   const entry = await downloadPromise;
-  await streamFromCache(entry, res, attachment);
+  await streamFromCache(entry, req, res, attachment);
   if (entry.transient) {
     await deps.cache.remove(tag, songId).catch(() => undefined);
   }
@@ -333,7 +378,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       biliCache.lastWbiKeysFetchTime = 0;
       // remove cookie cache file
       const cookieCache = path.join(__dirname, "../../../vendor/cache/bilibili_cookies.json");
-      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch {}
+      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch { }
       res.json({ code: 0, message: "Bilibili cache cleared" });
     } catch (error) {
       next(error);
