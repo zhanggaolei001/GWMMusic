@@ -54,6 +54,71 @@ npm install @mantine/core @mantine/hooks @mantine/notifications @tanstack/react-
 - 本文件 `web/MIGRATION_PLAN.md`（当前）
 - 初始 POC 分支（可选）
 
+现状审计（2026-01-06）
+
+依赖现状（web/package.json）
+- UI/样式：无组件库；主要依赖 `src/styles/*.css` + 多处 inline style。
+- 网络：axios（`src/lib/api.ts`）。
+- 测试：vitest + testing-library。
+
+组件清单（web/src/components）
+- `SearchPage.tsx`
+   - 自实现：搜索表单（input/select/button）、列表渲染（ul/li）、加载态、空态。
+   - 可替换：Input/Search、Select、Button、List/Table、Skeleton/Empty、message/notification。
+- `Player.tsx`
+   - 自实现：进度条（div + pointer events）、tooltip、播放按钮、布局。
+   - 保留：`HTMLAudioElement` + `useAudio`（Range/流更可靠）。
+   - 可替换：Slider、Tooltip、Button、Typography、Space/Flex。
+- `Navigation.tsx`
+   - 自实现：侧边导航 + 底部导航（响应式）、active 状态、少量 inline style。
+   - 可替换：Layout/Sider/Menu + responsive layout。
+- `RightPanel.tsx`
+   - 自实现：队列列表、缓存概览、按钮组。
+   - 可替换：Card、List、Button、Empty、Statistic。
+- `SettingsPage.tsx`
+   - 自实现：select/input 表单。
+   - 可替换：Form、Select、Input、Modal/Drawer。
+
+样式清单（web/src/styles）
+- `base.css`：全局变量、背景、字体（注意：当前直接定义了颜色/阴影等，这会与组件库主题体系冲突）。
+- `layout.css`：网格布局与 sticky 右侧栏。
+- `nav.css`：导航样式 + 底部导航响应式。
+- `components.css`：Card/Button/List 等大量“组件样式”自实现（最适合迁移）。
+- `player.css`：Player 布局与 tooltip/交互样式。
+
+关键问题（更具体）
+- 视觉体系“自定义变量 + 多文件 CSS + inline style”混用，扩展/统一成本高。
+- 组件缺少统一的 loading/empty/error 视觉表现。
+- 表单与列表重复实现多处（Search/Settings/RightPanel）。
+- 可访问性与交互一致性依赖手写（例如进度条拖拽/tooltip）。
+
+迁移优先级（POC 建议）
+1) SearchPage（推荐第一个 POC）
+    - 原因：组件边界清晰、替换收益高（表单+列表+状态）、对音频链路影响最小。
+2) Player（第二个）
+    - 原因：交互复杂但收益大；保留 audio 逻辑，仅替换 UI。
+3) Navigation / RightPanel / SettingsPage
+
+可选技术栈建议（择一）
+
+方案 A：Ant Design（推荐默认）
+- 适用：想“尽量少写 CSS”，直接用成熟组件体系。
+- 组件替换映射：
+   - SearchPage：`Input.Search` + `Select` + `List`/`Table` + `Empty` + `Spin`
+   - Player：`Slider` + `Tooltip` + `Button` + `Typography`
+   - Navigation：`Layout.Sider` + `Menu`
+   - Settings：`Modal` + `Form` + `Input` + `Select`
+- 同步引入：`@tanstack/react-query`（请求缓存/状态管理）。
+
+方案 B：Mantine（备选）
+- 适用：更轻、更现代的 hooks/主题体系；组件齐全度略弱于 AntD。
+
+验收标准（每一步迁移的 Definition of Done）
+- 功能不回归：搜索、播放、缓存、设置都可用。
+- 样式来源明确：迁移部分不再依赖 `components.css` 的对应规则（逐步删除）。
+- 状态一致：loading/empty/error 使用组件库统一呈现。
+- 代码更简：组件中 inline style 明显减少，重复 UI 逻辑减少。
+
 下一步建议
 - 确认使用的组件库（antd 或 mantine）。
 - 我可以立刻做 POC（迁移 `SearchPage` 为 antd + react-query），会创建一个分支并提交小的、更改后的文件，便于 review。
