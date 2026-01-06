@@ -111,6 +111,14 @@ npm run dev
 
 ---
 
+## Docker 部署
+
+- `docker compose build` 会从 [server/Dockerfile](server/Dockerfile) 和 [web/Dockerfile](web/Dockerfile) 构建镜像，后端直接运行 `node dist/index.js`，前端用 `nginx` 托管 `dist/` 内容；`web` 镜像会把 `${VITE_API_BASE:-http://localhost:4000}` 传给 Vite，在构建阶段就把 API 基址固定下来。
+- `docker compose up -d` 会把服务端绑定到 `SERVER_PORT`（默认 4000）、前端绑定到 `WEB_PORT`（默认 5173），并挂载 `cache` 卷到容器里的 `/cache`。
+- 在项目根目录创建 `.env`，写入 `NETEASE_COOKIE`、`NETEASE_PROXY`、`CACHE_MAX_SIZE_MB`、`CACHE_TTL_HOURS`、`SERVER_PORT`、`WEB_PORT` 等值；`server/src/utils/config.ts` 会读这些变量控制缓存、代理与 Cookie。 Compose 也允许在运行命令前通过 `export` 或 `docker compose --env-file` 传入自定义环境变量。
+- 前端镜像接受 `VITE_API_BASE` 变量（默认 `http://localhost:4000`），根据实际部署调整成后端容器的主机名或 IP，确保界面请求到正确的 API。
+
+
 ## 后端 API 摘要
 
 | 方法 | 路径 | 描述 |

@@ -1,0 +1,118 @@
+/* Player styles */
+.player-full.card {
+    background: linear-gradient(180deg, var(--card), rgba(255, 255, 255, 0.02));
+    padding: 12px;
+    border-radius: calc(var(--radius-lg) - 4px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.player-progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.player-progress>div {
+    width: 0%;
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+/* visually hide audio element but keep it accessible for playback/control */
+.player-audio-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: -1px !important;
+}
+
+.player-footer {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6));
+    padding: 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 160;
+}
+
+.player-art {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-footer .player-progress {
+    flex: 1 1 auto;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
+.player-footer .player-progress {
+    cursor: pointer;
+    touch-action: pan-x;
+}
+
+.player-progress-tooltip {
+    position: absolute;
+    transform: translate(-50%, -120%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    top: -6px;
+    z-index: 220;
+}
+
+.seek {
+    flex: 1
+}
+
+.player-title {
+    color: #fff;
+    font-weight: 700
+}
+
+.player-sub {
+    font-size: 13px;
+    color: var(--muted)
+}
+
+@media (max-width: 900px) {
+    .player-footer {
+        left: 12px;
+        right: 12px;
+        bottom: calc(var(--bottom-nav-height) + 12px);
+        z-index: 200;
+    }
+
+    /* hide the top full player on smaller screens, keep audio element in DOM for playback */
+    .player-full.card {
+        display: none;
+    }
+
+    /* ensure audio element (if present) doesn't render native controls that overlap footer */
+    .player-full.card audio {
+        display: none !important;
+    }
+}

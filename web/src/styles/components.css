@@ -1,0 +1,222 @@
+/* Component styles: cards, buttons, lists */
+.card {
+    background: linear-gradient(180deg, var(--card), rgba(255, 255, 255, 0.02));
+    padding: 18px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.card h2 {
+    color: #fff;
+    margin: 0 0 8px;
+}
+
+.search-form,
+.playlist-form {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-form input,
+.playlist-form input,
+.search-form select {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 10px 12px;
+    border-radius: 12px;
+    color: #e6eef1
+}
+
+.search-input {
+    min-width: 240px;
+    flex: 1 1 260px;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+}
+
+.search-btn {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #02120a;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+.search-form input::placeholder {
+    color: rgba(230, 238, 241, 0.5)
+}
+
+.btn {
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), #1ed760);
+    color: #02120a;
+    padding: 10px 18px;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.btn.secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid rgba(255, 255, 255, 0.04)
+}
+
+.btn:active {
+    transform: translateY(1px)
+}
+
+.song-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.song-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent);
+    border: 1px solid rgba(255, 255, 255, 0.02)
+}
+
+.song-left {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
+.art {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #05110a;
+    font-weight: 800
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent);
+}
+
+.result-play {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #02120a;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+}
+
+.song-title {
+    font-weight: 700;
+    color: #fff
+}
+
+.song-meta {
+    font-size: 13px;
+    color: var(--muted)
+}
+
+.actions {
+    display: flex;
+    gap: 8px
+}
+
+.action-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    background: transparent;
+    border-radius: 12px
+}
+
+.tab-button {
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    font-weight: 700
+}
+
+.tab-button.active {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #02120a
+}
+
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 10px
+}
+
+.album-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer
+}
+
+.album-card img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover
+}
+
+.album-card-body {
+    padding: 10px;
+    color: var(--muted)
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    font-size: 12px
+}
+
+.cache-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px
+}
+
+.cache-table th,
+.cache-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    color: var(--muted)
+}

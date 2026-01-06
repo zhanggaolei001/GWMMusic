@@ -1,0 +1,12 @@
+node_modules
+logs
+cache
+web/node_modules
+server/node_modules
+dist
+docker-compose.override.yml
+.env
+.env.*
+.git
+**/node_modules
+**/dist

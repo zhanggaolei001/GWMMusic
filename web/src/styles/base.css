@@ -1,0 +1,35 @@
+:root {
+    --bg-0: #0b0f14;
+    --bg-1: #0f1720;
+    --card: #0f1725;
+    --muted: #9aa6b2;
+    --accent: #1db954;
+    --accent-2: #22d3ee;
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-2: rgba(255, 255, 255, 0.04);
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --bottom-nav-height: 64px;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial;
+    color: #e6eef1;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(34, 51, 64, 0.35), transparent), linear-gradient(180deg, #081018 0%, #0b1218 100%);
+    padding: 0;
+    margin: 0;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.hidden {
+    display: none;
+}

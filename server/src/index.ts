@@ -1,5 +1,8 @@
 ﻿import fs from "fs";
 import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -39,7 +42,8 @@ async function bootstrap(): Promise<void> {
   app.use("/api", createMusicRouter({ cache, client }));
 
   const webDist = path.resolve(__dirname, "..", "..", "web", "dist");
-  if (fs.existsSync(webDist)) {
+  const serveWeb = String(process.env.SERVE_WEB || "").toLowerCase() === "true" || process.env.NODE_ENV === 'production';
+  if (serveWeb && fs.existsSync(webDist)) {
     app.use(express.static(webDist));
     app.get("/", (_req, res) => {
       res.sendFile(path.join(webDist, "index.html"));

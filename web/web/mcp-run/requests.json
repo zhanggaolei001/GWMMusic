@@ -1,0 +1,106 @@
+[
+  {
+    "url": "http://127.0.0.1:5173/",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/@vite/client",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/main.tsx?t=1767655228908",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/@react-refresh",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/react.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/App.tsx?t=1767655228907",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/styles/base.css?t=1767620500265",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/styles/layout.css",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/styles/nav.css",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/styles/components.css",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/styles/player.css?t=1767655228908",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/vite/dist/client/env.mjs",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/chunk-75H4GELE.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/chunk-P2LSHJDD.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/components/Navigation.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/components/RightPanel.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/components/Player.tsx?t=1767655228907",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/components/SearchPage.tsx?t=1767621039525",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/components/SettingsPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/lib/api.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/src/hooks/useAudio.ts?t=1767654841886",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/node_modules/.vite/deps/axios.js?v=896a6d0c",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/undefined",
+    "method": "GET"
+  },
+  {
+    "url": "http://127.0.0.1:5173/undefined",
+    "method": "GET"
+  }
+]

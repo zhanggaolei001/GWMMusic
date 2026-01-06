@@ -1,0 +1,38 @@
+version: "3.9"
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "${SERVER_PORT:-4000}:4000"
+    environment:
+      - PORT=4000
+      - HOST=0.0.0.0
+      - NETEASE_COOKIE=${NETEASE_COOKIE}
+      - NETEASE_PROXY=${NETEASE_PROXY}
+      - NETEASE_REAL_IP=${NETEASE_REAL_IP}
+      - NETEASE_TIMEOUT_MS=${NETEASE_TIMEOUT_MS:-15000}
+      - CACHE_DIR=/cache
+      - CACHE_MAX_SIZE_MB=${CACHE_MAX_SIZE_MB:-2048}
+      - CACHE_TTL_HOURS=${CACHE_TTL_HOURS:-24}
+      - CACHE_MIN_SIZE_MB=${CACHE_MIN_SIZE_MB:-4}
+      - CACHE_MIN_BITRATE_KBPS=${CACHE_MIN_BITRATE_KBPS:-192}
+    volumes:
+      - cache:/cache
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:4000}
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    environment:
+      - VITE_API_BASE=${VITE_API_BASE:-http://localhost:4000}
+    depends_on:
+      - server
+    restart: unless-stopped
+volumes:
+  cache:
