@@ -120,5 +120,26 @@ npm install @mantine/core @mantine/hooks @mantine/notifications @tanstack/react-
 - 代码更简：组件中 inline style 明显减少，重复 UI 逻辑减少。
 
 下一步建议
-- 确认使用的组件库（antd 或 mantine）。
-- 我可以立刻做 POC（迁移 `SearchPage` 为 antd + react-query），会创建一个分支并提交小的、更改后的文件，便于 review。
+
+选型结论（默认方案，2026-01-06）
+- 组件库：Ant Design v5（`antd`）
+- 图标：`@ant-design/icons`
+- 数据请求/缓存：`@tanstack/react-query`
+-（可选）音频工具：暂不引入 howler，先保留原生 `HTMLAudioElement`（后端 Range/stream 更兼容）。
+
+为什么这样选
+- 目标是“尽量少自己写 style”，AntD 的组件覆盖面最大（表单/列表/弹窗/布局/空态/加载态/通知）。
+- `react-query` 可以统一 loading/错误/缓存/重试，减少手写状态管理。
+
+最小集成步骤（不改变现有页面结构，仅打基础）
+1) 安装依赖（web/）
+   - `npm install antd @ant-design/icons @tanstack/react-query`
+2) 入口引入 AntD 样式重置（减少与浏览器默认样式冲突）
+   - 在 `src/main.tsx` 顶部引入：`import "antd/dist/reset.css";`
+3) 全局挂载 QueryClientProvider
+   - 在 `src/main.tsx` 用 `QueryClientProvider` 包裹 `<App />`
+4)（可选）后续在 POC 时再引入 `ConfigProvider` 做主题覆盖
+
+下一步执行顺序
+- 先完成依赖安装与最小集成（main.tsx）。
+- 然后做 POC：优先迁移 `SearchPage` 为 AntD + react-query。
