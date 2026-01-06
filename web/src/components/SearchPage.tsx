@@ -1,5 +1,8 @@
-import React, { useState } from 'react'
-import { searchTracks, getStreamUrl, cacheTrack } from '../lib/api'
+import React, { useMemo, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Button, Card, Empty, Input, List, message, Select, Space, Spin, Typography } from 'antd'
+import { PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons'
+import { cacheTrack, searchTracks } from '../lib/api'
 
 type Props = {
     onPlay: (item: any) => void;
@@ -21,58 +24,118 @@ const loadSettings = () => {
 const SearchPage: React.FC<Props> = ({ onPlay, onCache }) => {
     const saved = loadSettings()
     const [q, setQ] = useState('')
-    const [results, setResults] = useState<any[]>([])
-    const [loading, setLoading] = useState(false)
+    const [committedQ, setCommittedQ] = useState('')
     const [source, setSource] = useState<'netease' | 'bili'>(saved.defaultSource || 'netease')
     const [tag, setTag] = useState<string>(saved.cacheTag || 'default')
 
-    const doSearch = async () => {
-        if (!q.trim()) return
-        setLoading(true)
-        try {
-            const items = await searchTracks(q)
-            setResults(items)
-        } catch (e) {
-            setResults([])
-        } finally {
-            setLoading(false)
-        }
+    const keyword = useMemo(() => committedQ.trim(), [committedQ])
+    const { data: results = [], isFetching, isError } = useQuery({
+        queryKey: ['search', keyword, source],
+        enabled: keyword.length > 0,
+        queryFn: () => searchTracks(keyword, source),
+        staleTime: 10_000,
+    })
+
+    const cacheMut = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await cacheTrack(id, tag)
+            if (!res.ok) throw new Error(res.error || 'cache failed')
+            return res
+        },
+        onSuccess: (_data, id) => {
+            message.success('已加入缓存')
+            onCache && onCache(id)
+        },
+        onError: (err: any) => {
+            message.error(err?.message || '缓存失败')
+        },
+    })
+
+    const doSearch = () => {
+        const next = q.trim()
+        if (!next) return
+        setCommittedQ(next)
     }
 
     return (
-        <div className="card search-page">
-            <div className="search-form" style={{ alignItems: 'center', marginBottom: 12 }}>
-                <input aria-label="search-input" className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索歌曲/视频/专辑" />
-                <select value={source} onChange={(e) => setSource(e.target.value as any)} style={{ marginLeft: 8 }}>
-                    <option value="netease">网易云</option>
-                    <option value="bili">Bilibili</option>
-                </select>
-                <button className="search-btn" onClick={doSearch} disabled={loading} aria-label="search-button">{loading ? '搜索中...' : '搜索'}</button>
-            </div>
-            <div>
-                {results.length === 0 ? (
-                    <p className="muted">未找到结果</p>
+        <Card title="搜索" styles={{ body: { padding: 16 } }}>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <Input.Search
+                        aria-label="search-input"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        onSearch={doSearch}
+                        placeholder="搜索歌曲/视频/专辑"
+                        allowClear
+                        style={{ minWidth: 260, flex: '1 1 320px' }}
+                        loading={isFetching}
+                        enterButton
+                    />
+
+                    <Select
+                        value={source}
+                        onChange={(v) => setSource(v)}
+                        style={{ width: 120 }}
+                        options={[
+                            { value: 'netease', label: '网易云' },
+                            { value: 'bili', label: 'Bilibili' },
+                        ]}
+                    />
+
+                    <Input
+                        value={tag}
+                        onChange={(e) => setTag(e.target.value)}
+                        placeholder="缓存 tag"
+                        style={{ width: 160 }}
+                    />
+                </Space>
+
+                {isFetching ? (
+                    <div style={{ padding: 18, textAlign: 'center' }}>
+                        <Spin />
+                    </div>
+                ) : results.length === 0 ? (
+                    <Empty
+                        description={keyword ? (isError ? '搜索失败' : '未找到结果') : '请输入关键词并搜索'}
+                        style={{ padding: 12 }}
+                    />
                 ) : (
-                    <ul className="song-list">
-                        {results.map((r: any) => (
-                            <li key={r.id} className="result-item">
-                                <div className="song-left">
-                                    <div className="art" aria-hidden>{(r.name || '').slice(0, 1)}</div>
-                                    <div>
-                                        <div className="song-title">{r.name}</div>
-                                        <div className="song-meta small muted">{(r.artists || []).join(' / ')}</div>
-                                    </div>
-                                </div>
-                                <div className="actions">
-                                    <button className="result-play" onClick={() => onPlay(r)} aria-label={`play-${r.id}`}>▶</button>
-                                    <button className="action-btn" onClick={async () => { await cacheTrack(r.id, tag); onCache && onCache(r.id); }}>缓存</button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                    <List
+                        itemLayout="horizontal"
+                        dataSource={results}
+                        renderItem={(r: any) => (
+                            <List.Item
+                                actions={[
+                                    <Button
+                                        key="play"
+                                        type="primary"
+                                        icon={<PlayCircleOutlined />}
+                                        onClick={() => onPlay(r)}
+                                        aria-label={`play-${r.id}`}
+                                    >
+                                        播放
+                                    </Button>,
+                                    <Button
+                                        key="cache"
+                                        icon={<DownloadOutlined />}
+                                        loading={cacheMut.isPending && (cacheMut.variables as any) === r.id}
+                                        onClick={() => cacheMut.mutate(Number(r.id))}
+                                    >
+                                        缓存
+                                    </Button>,
+                                ]}
+                            >
+                                <List.Item.Meta
+                                    title={<Typography.Text strong>{r.name}</Typography.Text>}
+                                    description={<Typography.Text type="secondary">{(r.artists || []).join(' / ')}</Typography.Text>}
+                                />
+                            </List.Item>
+                        )}
+                    />
                 )}
-            </div>
-        </div>
+            </Space>
+        </Card>
     )
 }
 
