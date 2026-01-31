@@ -1,9 +1,23 @@
-/* Player styles (POC: Player UI migrated to AntD) */
+/* Player styles */
 .player-full.card {
     background: linear-gradient(180deg, var(--card), rgba(255, 255, 255, 0.02));
     padding: 12px;
     border-radius: calc(var(--radius-lg) - 4px);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.player-progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.player-progress>div {
+    width: 0%;
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
 
 /* visually hide audio element but keep it accessible for playback/control */
@@ -38,7 +52,40 @@
     height: 56px;
     border-radius: 8px;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-footer .player-progress {
+    flex: 1 1 auto;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
+.player-footer .player-progress {
+    cursor: pointer;
+    touch-action: pan-x;
+}
+
+.player-progress-tooltip {
+    position: absolute;
+    transform: translate(-50%, -120%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    top: -6px;
+    z-index: 220;
+}
+
+.seek {
+    flex: 1
 }
 
 .player-title {
@@ -49,16 +96,6 @@
 .player-sub {
     font-size: 13px;
     color: var(--muted)
-}
-
-/* AntD slider inside dark footer: keep it compact */
-.player-slider {
-    margin: 0 6px;
-}
-
-.player-toggle {
-    font-size: 28px;
-    line-height: 1;
 }
 
 @media (max-width: 900px) {

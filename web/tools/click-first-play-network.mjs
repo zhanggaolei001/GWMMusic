@@ -15,12 +15,6 @@ async function main() {
         try {
             const url = resp.url();
             const status = resp.status();
-            // For streaming/binary endpoints avoid reading body (may be large/streaming).
-            if (url.includes('/api/songs/') && url.includes('/stream')) {
-                const headers = resp.headers();
-                responses.push({ url, status, headers });
-                return;
-            }
             let text = '';
             try { text = await resp.text(); } catch (e) { text = '<binary-or-no-body>'; }
             responses.push({ url, status, body: text.slice(0, 2000) });
