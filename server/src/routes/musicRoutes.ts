@@ -107,6 +107,67 @@ async function serveSong(
   }
 }
 
+async function serveCover(deps: MusicDeps, req: Request, res: Response): Promise<void> {
+  const songId = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(songId)) {
+    throw createHttpError(400, "Invalid song id");
+  }
+  const tagParam = typeof req.query.tag === "string" && req.query.tag.trim() !== "" ? req.query.tag : defaultTag;
+  const tag = tagParam || defaultTag;
+  const options = buildRequestOptions(req);
+
+  let entry = await deps.cache.get(tag, songId);
+  if (!entry) {
+    const key = `${tag}:${songId}`;
+    let downloadPromise = inflightDownloads.get(key);
+    if (!downloadPromise) {
+      downloadPromise = fetchAndCacheSong({
+        cache: deps.cache,
+        client: deps.client,
+        songId,
+        tag,
+        requestOptions: options,
+      }).finally(() => {
+        inflightDownloads.delete(key);
+      });
+      inflightDownloads.set(key, downloadPromise);
+    }
+    entry = await downloadPromise;
+  }
+
+  if (!entry.coverPath || !fs.existsSync(entry.coverPath)) {
+    throw createHttpError(404, "Cover not found");
+  }
+
+  const filename = entry.metadata.coverFile || "cover.jpg";
+  res.setHeader("Content-Disposition", `inline; filename=\"${encodeURIComponent(filename)}\"`);
+  const mimeType = entry.metadata.coverFile?.endsWith(".png") ? "image/png" : "image/jpeg";
+  res.setHeader("Content-Type", mimeType);
+  const stats = fs.statSync(entry.coverPath);
+  res.setHeader("Content-Length", stats.size.toString());
+  const readStream = fs.createReadStream(entry.coverPath);
+
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      readStream.off("error", onError);
+      res.off("close", onClose);
+      res.off("finish", onClose);
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+    const onClose = () => {
+      cleanup();
+      resolve();
+    };
+    readStream.on("error", onError);
+    res.once("close", onClose);
+    res.once("finish", onClose);
+    readStream.pipe(res).on("error", onError);
+  });
+}
+
 export const createMusicRouter = (deps: MusicDeps): Router => {
   const router = Router();
 
@@ -178,6 +239,14 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
     try {
       const lyrics = await deps.client.call<any>("lyric", { id }, buildRequestOptions(req));
       res.json(lyrics);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/songs/:id/cover", async (req, res, next) => {
+    try {
+      await serveCover(deps, req, res);
     } catch (error) {
       next(error);
     }
@@ -333,13 +402,8 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       biliCache.wbiKeys = null;
       biliCache.lastWbiKeysFetchTime = 0;
       // remove cookie cache file
-<<<<<<< HEAD
-      const cookieCache = path.join(__dirname, "../../../vendor/cache/bilibili_cookies.json");
-      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch { }
-=======
       const cookieCache = path.join(__dirname, "../../../music_api/cache/bilibili_cookies.json");
-      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch {}
->>>>>>> e2606805f63af69d015c18fe670f842e24916d2e
+      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch { }
       res.json({ code: 0, message: "Bilibili cache cleared" });
     } catch (error) {
       next(error);

@@ -32,6 +32,7 @@ GWM/
 │       ├── main.tsx
 │       ├── lib/api.ts
 │       └── styles.css
+├── lx-source.js               # 洛雪自定义音源脚本（REST 接口）
 └── music_api/
     ├── package.json（已移除 husky prepare 脚本）
     ├── main.js / server.js / module/
@@ -142,6 +143,7 @@ npm run dev
 | `GET /api/search?q=关键词` | 搜索歌曲（可选 `limit`、`type`、`offset`） |
 | `GET /api/songs/:id` | 获取歌曲详情 |
 | `GET /api/songs/:id/lyrics` | 获取歌词 |
+| `GET /api/songs/:id/cover` | 获取封面图片（用于洛雪 pic） |
 | `GET /api/songs/:id/stream?tag=xxx&br=999000` | 串流并缓存音频（默认 inline 播放） |
 | `GET /api/songs/:id/download?...` | 串流并缓存音频后以附件下载 |
 | `GET /api/playlists/:id` | 获取歌单详情 |
@@ -151,6 +153,22 @@ npm run dev
 - 缓存按标签（tag）分类，前端默认使用 `favorites`，可自定义。
 - 首次播放/下载会从网易云获取音频并写入缓存，后续命中则直接本地读取。
 - 若设置缓存上限，会以最久未访问策略自动清理。
+
+---
+
+## 洛雪音源（lx-source.js）
+
+本仓库根目录提供 `lx-source.js`，用于洛雪音乐的自定义音源脚本。它会调用本服务的 REST 接口：
+
+- `musicUrl` -> `/api/songs/:id/stream?br=...`
+- `lyric` -> `/api/songs/:id/lyrics`
+- `pic` -> `/api/songs/:id/cover`
+
+使用步骤：
+
+1. 在洛雪音乐「设置 -> 自定义源」导入脚本 `lx-source.js`。
+2. 打开脚本，将 `API_BASE` 修改为你的服务端地址（默认 `http://127.0.0.1:4000/api`）。
+3. 选择 `GWM REST` 源，即可获取播放、歌词与封面。
 
 ---
 
