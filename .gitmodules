@@ -1,0 +1,3 @@
+[submodule "music_api"]
+	path = music_api
+	url = git@github.com:zhanggaolei001/music_api.git

@@ -44,3 +44,5 @@ cache/
 *.tsbuildinfo
 *.tgz
 server/tmp-test-*
+
+# music_api is tracked as a git submodule

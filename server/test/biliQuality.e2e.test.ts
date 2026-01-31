@@ -68,9 +68,15 @@ describe('Bili Quality & Metadata', () => {
     const title = '以父之名';
     const status = await biliDownloadByQuery(query, title, 'mp3');
     expect([200, 206]).toContain(status);
-    await sleep(800);
-    const cache = await getCache();
-    const found = cache.find(e => String(e.title || '').includes(title));
+    // wait up to 5s for enrichment to complete
+    let found: any = null; let cache: any[] = [];
+    const start = Date.now();
+    while (Date.now() - start < 5000) {
+      cache = await getCache();
+      found = cache.find(e => String(e.title || '').includes(title));
+      if (found && (found.hasCover || found.hasLyrics)) break;
+      await sleep(300);
+    }
     expect(found).toBeTruthy();
     if (found) {
       expect(String(found.mimeType)).toMatch(/mpeg/i);
@@ -94,9 +100,15 @@ describe('Bili Quality & Metadata', () => {
     const resp = await axios.get(url, { responseType: 'stream', validateStatus: () => true, timeout: 25000 });
     (resp.data as any)?.destroy?.();
     expect([200, 206]).toContain(resp.status);
-    await sleep(800);
-    const cache = await getCache();
-    const found = cache.find(e => String(e.title || '').includes('以父之名'));
+    // wait up to 5s for enrichment
+    let found: any = null; let cache: any[] = [];
+    const start = Date.now();
+    while (Date.now() - start < 5000) {
+      cache = await getCache();
+      found = cache.find(e => String(e.title || '').includes('以父之名'));
+      if (found && (found.hasCover || found.hasLyrics)) break;
+      await sleep(300);
+    }
     expect(found).toBeTruthy();
     if (found) {
       expect(String(found.mimeType)).toMatch(/mpeg/i);
@@ -106,4 +118,3 @@ describe('Bili Quality & Metadata', () => {
     }
   });
 });
-

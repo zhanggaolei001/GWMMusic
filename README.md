@@ -4,7 +4,7 @@
 
 - `server/` 提供搜索、歌单、歌词、缓存、下载等 REST 接口，自动从网易云音乐抓取音频并按标签缓存到本地。
 - `web/` 是 React + Vite 构建的浏览器端，可以搜索、播放、下载并查看缓存状态。
-- `vendor/netease-cloud-music-api-alger/` 存放修改后的网易云 API 源码，通过 `file:` 依赖被后端直接引用，无需额外安装远端 npm 包。
+- `music_api/` 存放修改后的网易云 API 源码，通过 `file:` 依赖被后端直接引用，无需额外安装远端 npm 包。
 
 > ⚠️ **合法性说明**：仅供个人在已拥有网易云 VIP 权限的前提下自用，严禁用于任何商业或侵权用途。请勿传播缓存的音频文件。
 
@@ -32,11 +32,26 @@ GWM/
 │       ├── main.tsx
 │       ├── lib/api.ts
 │       └── styles.css
-└── vendor/netease-cloud-music-api-alger/
+└── music_api/
     ├── package.json（已移除 husky prepare 脚本）
     ├── main.js / server.js / module/
     └── …
 ```
+
+### music_api Submodule
+
+- This repo now tracks `music_api/` as a Git submodule.
+- First-time clone: use `git clone --recurse-submodules` or run `git submodule update --init --recursive`.
+- After init, install vendor dependencies once:
+  - `cd music_api && npm install`
+- If you later push the vendor repository to a remote, sync the submodule URL:
+  - `git submodule sync -- music_api`
+  - `git -C music_api remote -v` should point to your remote
+
+## Docs
+
+- Cache Index: docs/cache-index.md
+- Metadata Naming & Enrichment: docs/metadata-naming.md
 
 ---
 

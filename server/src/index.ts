@@ -11,7 +11,9 @@ import createHttpError from "http-errors";
 import { config } from "./utils/config";
 import { AudioCache } from "./services/audioCache";
 import { NeteaseClient } from "./services/neteaseClient";
+import { getDefaultCookie } from "./services/neteaseCookie";
 import { createMusicRouter } from "./routes/musicRoutes";
+import { createAlbumRouter } from "./routes/albumRoutes";
 
 async function bootstrap(): Promise<void> {
   const app = express();
@@ -33,13 +35,15 @@ async function bootstrap(): Promise<void> {
   }
 
   const client = new NeteaseClient({
-    cookie: config.netease.cookie,
+    cookie: getDefaultCookie() || config.netease.cookie,
     realIP: config.netease.realIp,
     proxy: config.netease.proxy,
     timeout: config.netease.timeoutMs,
   });
 
   app.use("/api", createMusicRouter({ cache, client }));
+  // Mount album-related routes (search/detail/cache)
+  app.use("/api", createAlbumRouter({ cache, client }));
 
   const webDist = path.resolve(__dirname, "..", "..", "web", "dist");
   const serveWeb = String(process.env.SERVE_WEB || "").toLowerCase() === "true" || process.env.NODE_ENV === 'production';

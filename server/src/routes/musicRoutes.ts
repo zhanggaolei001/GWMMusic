@@ -8,11 +8,12 @@ import { NeteaseClient, NeteaseRequestOptions } from "../services/neteaseClient"
 import { config, defaultTag } from "../utils/config";
 import { fetchAndCacheSong } from "../services/songService";
 import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBiliByBvidCid, resolveFirstCid, fetchAndCacheFromBiliWithOptions } from "../services/biliService";
-// vendor bilibili helpers
+import { getDefaultCookie, setDefaultCookie, getCookieStatus, clearDefaultCookie } from "../services/neteaseCookie";
+// music_api bilibili helpers
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../vendor/util/biliApiHandler");
+const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../music_api/util/biliApiHandler");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { cache: biliCache } = require("../../../vendor/util/biliRequest");
+const { cache: biliCache } = require("../../../music_api/util/biliRequest");
 
 type MusicDeps = {
   cache: AudioCache;
@@ -22,7 +23,7 @@ type MusicDeps = {
 const inflightDownloads = new Map<string, Promise<CacheEntry>>();
 
 const buildRequestOptions = (req: Request): NeteaseRequestOptions => ({
-  cookie: req.get("x-netease-cookie") || config.netease.cookie,
+  cookie: req.get("x-netease-cookie") || getDefaultCookie() || config.netease.cookie,
   realIP: req.get("x-real-ip") || config.netease.realIp,
   proxy: config.netease.proxy,
   timeout: config.netease.timeoutMs,
@@ -332,46 +333,130 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       biliCache.wbiKeys = null;
       biliCache.lastWbiKeysFetchTime = 0;
       // remove cookie cache file
+<<<<<<< HEAD
       const cookieCache = path.join(__dirname, "../../../vendor/cache/bilibili_cookies.json");
       try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch { }
+=======
+      const cookieCache = path.join(__dirname, "../../../music_api/cache/bilibili_cookies.json");
+      try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch {}
+>>>>>>> e2606805f63af69d015c18fe670f842e24916d2e
       res.json({ code: 0, message: "Bilibili cache cleared" });
     } catch (error) {
       next(error);
     }
   });
 
-  router.get("/cache", async (_req, res, next) => {
+  // NetEase cookie management (persist for your own use)
+  router.post("/netease/update-cookie", async (req, res, next) => {
     try {
-      const entries = await deps.cache.list();
-      res.json(
-        entries.map((entry) => {
-          const audioRelative = path.relative(config.cache.baseDir, entry.audioPath);
-          const lyricsRelative = entry.lyricsPath ? path.relative(config.cache.baseDir, entry.lyricsPath) : undefined;
-          const coverRelative = entry.coverPath ? path.relative(config.cache.baseDir, entry.coverPath) : undefined;
-          return {
-            id: entry.metadata.id,
-            tag: entry.metadata.tag,
-            title: entry.metadata.title,
-            artists: entry.metadata.artists,
-            album: entry.metadata.album,
-            size: entry.metadata.size,
-            mimeType: entry.metadata.mimeType,
-            createdAt: entry.metadata.createdAt,
-            lastAccessedAt: entry.metadata.lastAccessedAt,
-            audioFile: entry.metadata.audioFile,
-            lyricsFile: entry.metadata.lyricsFile,
-            coverFile: entry.metadata.coverFile,
-            folder: entry.metadata.folder,
-            audioPath: audioRelative,
-            lyricsPath: lyricsRelative,
-            coverPath: coverRelative,
-            hasLyrics: Boolean(entry.metadata.lyricsFile && entry.lyricsPath),
-            hasCover: Boolean(entry.metadata.coverFile && entry.coverPath),
-            durationSeconds: entry.metadata.durationSeconds,
-            bitrateKbps: entry.metadata.bitrateKbps,
-          };
-        }),
-      );
+      const cookie = String(req.body?.cookie || "").trim();
+      if (!cookie) return next(createHttpError(400, "Missing cookie"));
+      await setDefaultCookie(cookie);
+      res.json({ code: 0, message: "NetEase cookie updated" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/netease/cookie", async (_req, res, next) => {
+    try {
+      const status = getCookieStatus();
+      res.json({ code: 0, ...status });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/netease/clear-cookie", async (_req, res, next) => {
+    try {
+      await clearDefaultCookie();
+      res.json({ code: 0, message: "NetEase cookie cleared" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/cache", async (req, res, next) => {
+    try {
+      const limit = Number.parseInt(String(req.query.limit || 0), 10) || 0;
+      const offset = Number.parseInt(String(req.query.offset || 0), 10) || 0;
+      const tagFilter = typeof req.query.tag === 'string' ? String(req.query.tag).trim() : '';
+      const q = typeof req.query.q === 'string' ? String(req.query.q).trim().toLowerCase() : '';
+      const sort = typeof req.query.sort === 'string' ? String(req.query.sort) : 'lastAccessedAt:desc';
+
+      const allEntries = await deps.cache.list();
+      let items = allEntries;
+      if (tagFilter) items = items.filter(e => e.metadata.tag === tagFilter);
+      if (q) {
+        items = items.filter(e => {
+          const title = (e.metadata.title || e.metadata.audioFile || '').toLowerCase();
+          const artists = (e.metadata.artists || []).join(' / ').toLowerCase();
+          const album = (e.metadata.album || '').toLowerCase();
+          return title.includes(q) || artists.includes(q) || album.includes(q);
+        });
+      }
+      const [sortKey, sortDir] = sort.split(':');
+      items.sort((a, b) => {
+        const getVal = (e: typeof a) => {
+          if (sortKey === 'size') return e.metadata.size;
+          if (sortKey === 'createdAt') return new Date(e.metadata.createdAt).getTime();
+          // default lastAccessedAt
+          return new Date(e.metadata.lastAccessedAt).getTime();
+        };
+        const va = getVal(a);
+        const vb = getVal(b);
+        return (va - vb) * (sortDir?.toLowerCase() === 'asc' ? 1 : -1);
+      });
+
+      const total = items.length;
+      const paged = limit > 0 ? items.slice(offset, offset + limit) : items;
+
+      const mapped = paged.map((entry) => {
+        const audioRelative = path.relative(config.cache.baseDir, entry.audioPath);
+        const lyricsRelative = entry.lyricsPath ? path.relative(config.cache.baseDir, entry.lyricsPath) : undefined;
+        const coverRelative = entry.coverPath ? path.relative(config.cache.baseDir, entry.coverPath) : undefined;
+        return {
+          id: entry.metadata.id,
+          tag: entry.metadata.tag,
+          title: entry.metadata.title,
+          artists: entry.metadata.artists,
+          album: entry.metadata.album,
+          size: entry.metadata.size,
+          mimeType: entry.metadata.mimeType,
+          createdAt: entry.metadata.createdAt,
+          lastAccessedAt: entry.metadata.lastAccessedAt,
+          audioFile: entry.metadata.audioFile,
+          lyricsFile: entry.metadata.lyricsFile,
+          coverFile: entry.metadata.coverFile,
+          folder: entry.metadata.folder,
+          audioPath: audioRelative,
+          lyricsPath: lyricsRelative,
+          coverPath: coverRelative,
+          hasLyrics: Boolean(entry.metadata.lyricsFile && entry.lyricsPath),
+          hasCover: Boolean(entry.metadata.coverFile && entry.coverPath),
+          durationSeconds: entry.metadata.durationSeconds,
+          bitrateKbps: entry.metadata.bitrateKbps,
+        };
+      });
+
+      if (limit > 0) {
+        res.setHeader('X-Total-Count', String(total));
+        res.setHeader('X-Page-Limit', String(limit));
+        res.setHeader('X-Page-Offset', String(offset));
+      }
+      res.json(mapped);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/cache/:tag/:id', async (req, res, next) => {
+    try {
+      const tag = String(req.params.tag);
+      const id = Number.parseInt(String(req.params.id), 10);
+      if (!tag || !Number.isFinite(id)) return next(createHttpError(400, 'Invalid tag or id'));
+      await deps.cache.remove(tag, id);
+      res.json({ code: 0, message: 'Deleted' });
     } catch (error) {
       next(error);
     }

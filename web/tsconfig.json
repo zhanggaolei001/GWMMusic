@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
     "compilerOptions": {
         "target": "ES2020",
         "useDefineForClassFields": true,
@@ -23,3 +24,33 @@
     ],
     "references": []
 }
+=======
+    "compilerOptions":  {
+                            "target":  "ES2020",
+                            "useDefineForClassFields":  true,
+                            "module":  "ESNext",
+                            "moduleResolution": "Bundler",
+                            "lib":  [
+                                        "ES2020",
+                                        "DOM",
+                                        "DOM.Iterable"
+                                    ],
+                            "skipLibCheck":  true,
+                            "jsx":  "react-jsx",
+                            "allowSyntheticDefaultImports":  true,
+                            "esModuleInterop":  true,
+                            "strict":  true,
+                            "noFallthroughCasesInSwitch":  true,
+                            "forceConsistentCasingInFileNames":  true,
+                            "resolveJsonModule":  true,
+                            "types": ["vite/client"]
+                        },
+    "include":  [
+                    "src"
+                ],
+    "references":  [
+
+                   ]
+}
+
+>>>>>>> e2606805f63af69d015c18fe670f842e24916d2e

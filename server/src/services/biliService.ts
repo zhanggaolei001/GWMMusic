@@ -1,13 +1,14 @@
 import axios from "axios";
 import mime from "mime-types";
+import { config } from "../utils/config";
 
 import { AudioCache } from "./audioCache";
 import type { NeteaseClient } from "./neteaseClient";
 
-// Use vendor's Bili request util to handle WBI signature and headers
-// The vendor folder is adjacent to server (../vendor)
+// Use music_api's Bili request util to handle WBI signature and headers
+// The music_api folder is adjacent to server (../music_api)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { biliRequest } = require("../../../vendor/util/biliRequest");
+const { biliRequest } = require("../../../music_api/util/biliRequest");
 
 export interface BiliFetchParams {
   cache: AudioCache;
@@ -132,7 +133,7 @@ export async function fetchAndCacheFromBiliByKeywords({ cache, tag, songId, keyw
   const mimeTypeHeader = (audioResponse.headers["content-type"] as string) || "audio/mp4";
   const extFromHeader = (mime.extension(mimeTypeHeader) || "m4a").toString();
 
-  const chosenFormat = format || process.env.BILI_TARGET_FORMAT || 'original';
+  const chosenFormat = format || config.bili.targetFormat || 'original';
   console.info(`[bili] transcode format=${chosenFormat}`);
   const transcoded = await maybeTranscode(audioResponse.data, chosenFormat);
 
@@ -255,10 +256,11 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
   songId: number;
   keywords: string;
   desiredName?: string;
+  desiredArtist?: string;
   format?: string;
   client?: NeteaseClient;
 }) {
-  const { cache, tag, songId, keywords, desiredName, format, client } = options;
+  const { cache, tag, songId, keywords, desiredName, desiredArtist, format, client } = options;
   const entry = await fetchAndCacheFromBiliByKeywords({ cache, tag, songId, keywords, format });
 
   // Prepare candidate names for matching
@@ -343,8 +345,43 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
     }
   }
 
-  if (desiredName) {
-    entry.metadata.title = desiredName;
+  // As a final step, if caller provided desired NetEase naming, enforce it (configurable)
+  if (config.features.forceNeteaseNaming && (desiredName || desiredArtist)) {
+    entry.metadata.title = desiredName || entry.metadata.title;
+    if (desiredArtist) entry.metadata.artists = [desiredArtist];
+  }
+
+  // Optional: MusicBrainz fallback enrichment when NetEase didn't help
+  if ((!entry.metadata.artists || entry.metadata.artists.length === 0) && (!entry.metadata.title || entry.metadata.title === keywords)) {
+    try {
+      const useMb = config.features.mbFallback;
+      if (useMb) {
+        const ua = config.features.mbUserAgent || 'GWMMusic/0.1 (+https://github.com/zhanggaolei001/GWMMusic)';
+        const qlist = Array.from(new Set(candidates));
+        let best: any | undefined; let bestScore = 0;
+        for (const q of qlist) {
+          const resp = await axios.get('https://musicbrainz.org/ws/2/recording', {
+            params: { query: q, fmt: 'json', limit: 5 },
+            headers: { 'User-Agent': ua, 'Accept': 'application/json' },
+            timeout: 8000,
+          });
+          const recs: any[] = (resp.data && resp.data.recordings) || [];
+          for (const r of recs) {
+            const score = typeof r.score === 'number' ? r.score : 0;
+            if (score > bestScore) { bestScore = score; best = r; }
+          }
+          if (bestScore >= 80) break;
+        }
+        if (best) {
+          const artist = Array.isArray(best['artist-credit']) && best['artist-credit'][0]?.name ? String(best['artist-credit'][0].name) : undefined;
+          const titleMb = typeof best.title === 'string' ? best.title : undefined;
+          if (artist) entry.metadata.artists = [artist];
+          if (titleMb) entry.metadata.title = titleMb;
+        }
+      }
+    } catch {
+      // ignore MB failures
+    }
   }
   return entry;
 }
