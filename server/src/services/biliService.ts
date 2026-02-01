@@ -8,7 +8,7 @@ import type { NeteaseClient } from "./neteaseClient";
 // Use music_api's Bili request util to handle WBI signature and headers
 // The music_api folder lives inside server (./music_api)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { biliRequest } = require("../music_api/util/biliRequest");
+const { biliRequest } = require("../../music_api/util/biliRequest");
 
 export interface BiliFetchParams {
   cache: AudioCache;
