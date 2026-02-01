@@ -90,7 +90,7 @@ describe('musicRoutes', () => {
 
   test('GET /api/songs/:id/lyrics returns lyrics', async () => {
     const { app, deps } = buildApp();
-    (deps.client.call as jest.Mock).mockResolvedValue({ lrc: { lyric: '...'} });
+    (deps.client.call as jest.Mock).mockResolvedValue({ lrc: { lyric: '...' } });
     const res = await request(app).get('/api/songs/2/lyrics');
     expect(res.status).toBe(200);
     expect(res.body.lrc).toBeDefined();
@@ -111,10 +111,11 @@ describe('musicRoutes', () => {
     return { dir, file, buf };
   }
 
-  function cacheEntryFor(filePath: string, size: number, transient?: boolean): CacheEntry {
+  function cacheEntryFor(filePath: string, size: number, transient?: boolean, options: { coverPath?: string; coverFile?: string } = {}): CacheEntry {
     return {
       audioPath: filePath,
       metadataPath: filePath + '.json',
+      coverPath: options.coverPath,
       metadata: {
         id: 99,
         tag: 'untagged',
@@ -125,10 +126,19 @@ describe('musicRoutes', () => {
         createdAt: new Date().toISOString(),
         lastAccessedAt: new Date().toISOString(),
         audioFile: 'audio.mp3',
+        coverFile: options.coverFile,
         folder: '.',
       },
       transient,
     } as any;
+  }
+
+  function makeTempCoverFile(bytes = 12, ext = 'jpg') {
+    const dir = fs.mkdtempSync(path.join(process.cwd(), 'tmp-cover-'));
+    const file = path.join(dir, `cover.${ext}`);
+    const buf = Buffer.alloc(bytes, 2);
+    fs.writeFileSync(file, buf);
+    return { dir, file, buf };
   }
 
   test('GET /api/songs/:id/stream serves from cache (inline)', async () => {
@@ -178,6 +188,32 @@ describe('musicRoutes', () => {
     expect(deps.cache.remove).toHaveBeenCalledWith(expect.any(String), 123);
   });
 
+  test('GET /api/songs/:id/stream passes bitrate query to fetchAndCacheSong', async () => {
+    const { app, deps } = buildApp();
+    (deps.cache.get as jest.Mock).mockResolvedValue(null);
+    const { file } = makeTempAudioFile(4);
+    const entry = cacheEntryFor(file, 4, true);
+    (fetchAndCacheSong as jest.Mock).mockResolvedValue(entry);
+    const res = await request(app).get('/api/songs/321/stream').query({ br: '999000' });
+    expect(res.status).toBe(200);
+    expect(fetchAndCacheSong).toHaveBeenCalledWith(
+      expect.objectContaining({ songId: 321, bitrate: 999000 })
+    );
+  });
+
+  test('GET /api/songs/:id/cover returns cover image', async () => {
+    const { app, deps } = buildApp();
+    const { file: audioFile } = makeTempAudioFile(4);
+    const { file: coverFile, buf } = makeTempCoverFile(6, 'png');
+    const entry = cacheEntryFor(audioFile, 4, false, { coverPath: coverFile, coverFile: 'cover.png' });
+    (deps.cache.get as jest.Mock).mockResolvedValue(entry);
+    const res = await request(app).get('/api/songs/99/cover');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers['content-length']).toBe(String(buf.length));
+    expect(Buffer.compare(res.body, buf)).toBe(0);
+  });
+
   test('GET /api/cache returns mapped entries', async () => {
     const { app, deps } = buildApp();
     const { file } = makeTempAudioFile(5);
@@ -189,5 +225,13 @@ describe('musicRoutes', () => {
     expect(res.body[0].hasLyrics).toBe(false);
     expect(res.body[0].hasCover).toBe(false);
     expect(typeof res.body[0].audioPath).toBe('string');
+  });
+
+  test('DELETE /api/cache/:tag/:id removes entry', async () => {
+    const { app, deps } = buildApp();
+    const res = await request(app).delete('/api/cache/favorites/123');
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/Deleted/i);
+    expect(deps.cache.remove).toHaveBeenCalledWith('favorites', 123);
   });
 });
