@@ -117,10 +117,12 @@ export async function fetchAndCacheSong({
     // ignore metadata failures
   }
 
+  const extensionMime = (mime.lookup(extension) as string) || undefined;
   const resolvedMimeType =
-    mimeTypeHeader.includes("octet") || mimeTypeHeader.includes("application")
+    extensionMime ||
+    (mimeTypeHeader.includes("octet") || mimeTypeHeader.includes("application")
       ? (mime.lookup(extension) as string) || mimeTypeHeader
-      : mimeTypeHeader;
+      : mimeTypeHeader);
 
   return cache.save({
     tag,
