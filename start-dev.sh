@@ -55,7 +55,38 @@ echo "  tail -f $WEB_LOG"
 echo
 echo "Press Ctrl+C to stop this script. Use 'kill <PID>' to stop individually."
 
-# 等待任一进程退出
-wait -n "$SERVER_PID" "$WEB_PID" || true
+# 兼容 bash 3.2 / sh：轮询等待任一进程退出
+while true; do
+  if ! ps -p "$SERVER_PID" > /dev/null 2>&1; then
+    break
+  fi
+  if ! ps -p "$WEB_PID" > /dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
 echo "⚠️  One of the processes has exited. Check logs for details."
+
+# 输出日志尾部以便快速定位
+echo "\n--- server-dev.log (last 50 lines) ---"
+tail -n 50 "$SERVER_LOG" || true
+echo "\n--- web-dev.log (last 50 lines) ---"
+tail -n 50 "$WEB_LOG" || true
+
+# 提示仍存活进程
+if ps -p "$SERVER_PID" > /dev/null 2>&1; then
+  echo "\nServer still running: PID $SERVER_PID"
+else
+  echo "\nServer not running (PID $SERVER_PID)"
+fi
+
+if ps -p "$WEB_PID" > /dev/null 2>&1; then
+  echo "Web still running: PID $WEB_PID"
+else
+  echo "Web not running (PID $WEB_PID)"
+fi
+
+echo "\nTo stop manually:"
+echo "  kill $SERVER_PID"
+echo "  kill $WEB_PID"
