@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 
 // Mock music_api bili helpers used by routes (virtual modules) BEFORE importing router
-jest.mock('../../../music_api/util/biliApiHandler', () => ({
+jest.mock('../music_api/util/biliApiHandler', () => ({
   createStreamProxy: jest.fn(async (_url: string, _opts: any, _req: any, res: any) => {
     res.status(200).set('Content-Type', 'text/plain').send('ok');
   }),
@@ -10,7 +10,7 @@ jest.mock('../../../music_api/util/biliApiHandler', () => ({
   getBilibiliCookies: jest.fn(async () => 'SESSDATA=abc'),
 }), { virtual: true });
 
-jest.mock('../../../music_api/util/biliRequest', () => ({
+jest.mock('../music_api/util/biliRequest', () => ({
   cache: { buvid: '', wbiKeys: null, lastWbiKeysFetchTime: 0 },
 }), { virtual: true });
 

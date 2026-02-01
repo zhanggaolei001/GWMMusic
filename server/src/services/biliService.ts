@@ -6,9 +6,9 @@ import { AudioCache } from "./audioCache";
 import type { NeteaseClient } from "./neteaseClient";
 
 // Use music_api's Bili request util to handle WBI signature and headers
-// The music_api folder is adjacent to server (../music_api)
+// The music_api folder lives inside server (./music_api)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { biliRequest } = require("../../../music_api/util/biliRequest");
+const { biliRequest } = require("../music_api/util/biliRequest");
 
 export interface BiliFetchParams {
   cache: AudioCache;
@@ -44,7 +44,7 @@ async function maybeTranscode(stream: NodeJS.ReadableStream, targetFormat?: stri
       if (ffmpegPath) {
         ffmpeg.setFfmpegPath(ffmpegPath);
       }
-    } catch {}
+    } catch { }
     const { PassThrough } = require("stream");
     const out = new PassThrough();
     const cmd = ffmpeg(stream).on("error", () => {
@@ -213,7 +213,7 @@ export async function fetchAndCacheFromBiliByBvidCid(options: { cache: AudioCach
   try {
     const view = await biliRequest({ url: "https://api.bilibili.com/x/web-interface/wbi/view", useWbi: true, params: { bvid } });
     ownerName = (view?.data?.owner && view?.data?.owner.name) as string | undefined;
-  } catch {}
+  } catch { }
 
   const entry = await cache.save({
     tag,
@@ -236,8 +236,8 @@ export async function fetchAndCacheFromBiliByBvidCid(options: { cache: AudioCach
         const name = String(s?.name || "");
         const snorm = norm(name);
         const len = Math.max(tnorm.length, snorm.length, 1);
-        let i=0,j=0,k=0; while(i<tnorm.length && j<snorm.length){ if(tnorm[i]===snorm[j]){k++;i++;j++;} else {j++;} }
-        const score = k/len;
+        let i = 0, j = 0, k = 0; while (i < tnorm.length && j < snorm.length) { if (tnorm[i] === snorm[j]) { k++; i++; j++; } else { j++; } }
+        const score = k / len;
         if (score > bestScore) { bestScore = score; best = s; }
       }
       if (best && bestScore >= 0.5) {
@@ -245,7 +245,7 @@ export async function fetchAndCacheFromBiliByBvidCid(options: { cache: AudioCach
         entry.metadata.artists = (best.ar || []).map((a: any) => a.name);
         entry.metadata.album = best.al?.name;
       }
-    } catch {}
+    } catch { }
   }
   return entry;
 }
@@ -318,7 +318,7 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
             try {
               const lyric = await client.call<any>("lyric", { id: best.id }, {});
               lyricContent = lyric?.lrc?.lyric || lyric?.tlyric?.lyric;
-            } catch {}
+            } catch { }
             // augment files if present by re-saving metadata (will embed for mp3)
             await cache.save({
               tag,
@@ -336,7 +336,7 @@ export async function fetchAndCacheFromBiliWithOptions(options: {
               lyrics: lyricContent ? { content: lyricContent } : undefined,
               cover: coverBuffer ? { buffer: coverBuffer, fileName: coverFileName } : undefined,
             });
-          } catch {}
+          } catch { }
           break;
         }
       } catch {

@@ -11,9 +11,9 @@ import { searchBiliVideos, fetchAndCacheFromBiliByKeywords, fetchAndCacheFromBil
 import { getDefaultCookie, setDefaultCookie, getCookieStatus, clearDefaultCookie } from "../services/neteaseCookie";
 // music_api bilibili helpers
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../../../music_api/util/biliApiHandler");
+const { createStreamProxy, updateCookie, getBilibiliCookies } = require("../music_api/util/biliApiHandler");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { cache: biliCache } = require("../../../music_api/util/biliRequest");
+const { cache: biliCache } = require("../music_api/util/biliRequest");
 
 type MusicDeps = {
   cache: AudioCache;
@@ -402,7 +402,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       biliCache.wbiKeys = null;
       biliCache.lastWbiKeysFetchTime = 0;
       // remove cookie cache file
-      const cookieCache = path.join(__dirname, "../../../music_api/cache/bilibili_cookies.json");
+      const cookieCache = path.join(__dirname, "../music_api/cache/bilibili_cookies.json");
       try { if (fs.existsSync(cookieCache)) fs.rmSync(cookieCache); } catch { }
       res.json({ code: 0, message: "Bilibili cache cleared" });
     } catch (error) {
