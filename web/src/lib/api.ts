@@ -30,12 +30,18 @@ export const searchTracks = async (q: string, source = 'netease') => {
   }));
 };
 
-export const getStreamUrl = (id: number | string) => {
+export const getStreamUrl = (id: number | string, br: number = 128000) => {
   const base = runtimeApiBase || '';
   if (!id) {
     return (_tag?: string) => '';
   }
-  return (tag?: string) => `${base}/api/songs/${id}/stream${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`;
+  return (tag?: string) => {
+    const params = new URLSearchParams();
+    if (tag) params.set('tag', tag);
+    if (br) params.set('br', String(br));
+    const qs = params.toString();
+    return `${base}/api/songs/${id}/stream${qs ? `?${qs}` : ''}`;
+  };
 };
 
 export const getCacheSummary = async () => {
@@ -44,11 +50,14 @@ export const getCacheSummary = async () => {
 };
 
 // trigger server to fetch/cache a song by requesting its stream (fire-and-forget)
-export const cacheTrack = async (id: number | string, tag?: string) => {
+export const cacheTrack = async (id: number | string, tag?: string, br: number = 128000) => {
   // request as blob to trigger server fetch but not keep in memory large text
   try {
     if (!id) return { ok: false, error: 'invalid id' };
-    const url = `/songs/${id}/stream` + (tag ? `?tag=${encodeURIComponent(tag)}` : '');
+    const params = new URLSearchParams();
+    if (tag) params.set('tag', tag);
+    if (br) params.set('br', String(br));
+    const url = `/songs/${id}/stream` + (params.toString() ? `?${params.toString()}` : '');
     await api.get(url, { responseType: 'blob' });
     return { ok: true };
   } catch (e: any) {

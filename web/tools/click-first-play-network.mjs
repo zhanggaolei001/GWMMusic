@@ -5,7 +5,11 @@ import path from 'path';
 async function main() {
     const out = path.resolve(process.cwd(), 'web', 'mcp-click-net');
     fs.mkdirSync(out, { recursive: true });
-    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    const executablePath = process.env.CHROME_PATH || undefined;
+    const browser = await chromium.launch({
+        args: ['--no-sandbox', '--disable-dev-shm-usage'],
+        executablePath,
+    });
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
     const page = await context.newPage();
     const logs = [];
@@ -15,26 +19,31 @@ async function main() {
         try {
             const url = resp.url();
             const status = resp.status();
+            const headers = resp.headers();
             let text = '';
             try { text = await resp.text(); } catch (e) { text = '<binary-or-no-body>'; }
-            responses.push({ url, status, body: text.slice(0, 2000) });
+            responses.push({ url, status, headers, body: text.slice(0, 2000) });
         } catch (e) { }
     });
 
-    await page.goto('http://127.0.0.1:5173', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
     const input = await page.$('input[aria-label="search-input"]');
     if (input) {
         await input.fill('王心凌 爱你');
+        await input.press('Enter');
         const btn = await page.$('button[aria-label="search-button"]') || await page.$('.search-btn');
         if (btn) {
-            await Promise.all([page.waitForResponse(r => r.url().includes('/api/search') && r.status() === 200).catch(() => { }), btn.click()]);
+            await Promise.all([
+                page.waitForResponse(r => r.url().includes('/api/search') && r.status() === 200).catch(() => { }),
+                btn.click(),
+            ]);
         }
     }
-    await page.waitForTimeout(800);
-    const playBtn = await page.$('button[aria-label^="play-"]');
+    await page.waitForSelector('button.result-play', { timeout: 8000 }).catch(() => null);
+    const playBtn = await page.$('button.result-play');
     if (playBtn) {
         await playBtn.click();
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(2000);
     }
 
     fs.writeFileSync(path.join(out, 'console.json'), JSON.stringify(logs, null, 2));

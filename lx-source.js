@@ -9,7 +9,7 @@
 const { EVENT_NAMES, request, on, send } = globalThis.lx
 
 // 配置：请按需修改为你的服务端地址
-const API_BASE = "http://127.0.0.1:4000/api"
+const API_BASE = "http://192.168.31.49:4000/api"
 
 const httpRequest = (url, options) => new Promise((resolve, reject) => {
     request(url, options, (err, resp) => {
