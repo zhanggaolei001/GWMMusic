@@ -46,3 +46,4 @@ cache/
 server/tmp-test-*
 
 # music_api is tracked as a git submodule
+server/src/.data/netease_cookie.json
