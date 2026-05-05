@@ -29,7 +29,7 @@ const buildRequestOptions = (req: Request): NeteaseRequestOptions => ({
   timeout: config.netease.timeoutMs,
 });
 
-const streamFromCache = (entry: CacheEntry, res: Response, attachment: boolean) => {
+const streamFromCache = (entry: CacheEntry, req: Request, res: Response, attachment: boolean) => {
   const disposition = attachment ? "attachment" : "inline";
   const filename = entry.metadata.audioFile;
   if (filename) {
@@ -38,7 +38,45 @@ const streamFromCache = (entry: CacheEntry, res: Response, attachment: boolean) 
     res.setHeader("Content-Disposition", disposition);
   }
   res.setHeader("Content-Type", entry.metadata.mimeType);
-  res.setHeader("Content-Length", entry.metadata.size.toString());
+  res.setHeader("Accept-Ranges", "bytes");
+  const stat = fs.statSync(entry.audioPath);
+  const totalSize = stat.size;
+  const range = req.headers.range;
+  if (range) {
+    const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
+    const start = Number.parseInt(startStr, 10);
+    const end = endStr ? Number.parseInt(endStr, 10) : totalSize - 1;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || end >= totalSize) {
+      res.status(416);
+      res.setHeader("Content-Range", `bytes */${totalSize}`);
+      res.end();
+      return Promise.resolve();
+    }
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+    res.setHeader("Content-Length", (end - start + 1).toString());
+    const readStream = fs.createReadStream(entry.audioPath, { start, end });
+    return new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        readStream.off("error", onError);
+        res.off("close", onClose);
+        res.off("finish", onClose);
+      };
+      const onError = (err: Error) => {
+        cleanup();
+        reject(err);
+      };
+      const onClose = () => {
+        cleanup();
+        resolve();
+      };
+      readStream.on("error", onError);
+      res.once("close", onClose);
+      res.once("finish", onClose);
+      readStream.pipe(res).on("error", onError);
+    });
+  }
+  res.setHeader("Content-Length", totalSize.toString());
   const readStream = fs.createReadStream(entry.audioPath);
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
@@ -72,13 +110,14 @@ async function serveSong(
     throw createHttpError(400, "Invalid song id");
   }
   const tagParam = typeof req.query.tag === "string" && req.query.tag.trim() !== "" ? req.query.tag : defaultTag;
-  const tag = tagParam || defaultTag;
+  const baseTag = tagParam || defaultTag;
   const bitrate = req.query.br ? Number.parseInt(String(req.query.br), 10) : undefined;
+  const tag = bitrate ? `${baseTag}@br${bitrate}` : baseTag;
   const options = buildRequestOptions(req);
 
   const cached = await deps.cache.get(tag, songId);
   if (cached) {
-    await streamFromCache(cached, res, attachment);
+    await streamFromCache(cached, req, res, attachment);
     if (cached.transient) {
       await deps.cache.remove(tag, songId).catch(() => undefined);
     }
@@ -101,7 +140,7 @@ async function serveSong(
     inflightDownloads.set(key, downloadPromise);
   }
   const entry = await downloadPromise;
-  await streamFromCache(entry, res, attachment);
+  await streamFromCache(entry, req, res, attachment);
   if (entry.transient) {
     await deps.cache.remove(tag, songId).catch(() => undefined);
   }
@@ -292,7 +331,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
         const { cid } = await resolveFirstCid(bvid);
         entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: desiredName || items[0]?.title, format, client: deps.client });
       }
-      await streamFromCache(entry, res, true);
+      await streamFromCache(entry, req, res, true);
     } catch (error) {
       next(error);
     }
@@ -309,7 +348,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       }
 
       const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: `${bvid}` });
-      await streamFromCache(entry, res, true);
+      await streamFromCache(entry, req, res, true);
     } catch (error) {
       next(error);
     }
@@ -323,7 +362,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       const tag = tagParam || defaultTag;
       const songId = Date.now();
       const entry = await fetchAndCacheFromBiliByKeywords({ cache: deps.cache, tag, songId, keywords: q });
-      await streamFromCache(entry, res, false);
+      await streamFromCache(entry, req, res, false);
     } catch (error) {
       next(error);
     }
@@ -337,7 +376,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       const tag = tagParam || defaultTag;
       const songId = Number.parseInt(String(req.query.id || cid), 10);
       const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: title });
-      await streamFromCache(entry, res, false);
+      await streamFromCache(entry, req, res, false);
     } catch (error) {
       next(error);
     }
@@ -353,7 +392,7 @@ export const createMusicRouter = (deps: MusicDeps): Router => {
       const desiredName = typeof req.query.filename === "string" ? req.query.filename : undefined;
       const format = typeof req.query.format === "string" ? String(req.query.format) : undefined;
       const entry = await fetchAndCacheFromBiliByBvidCid({ cache: deps.cache, tag, songId, bvid, cid, titleHint: desiredName || title, format, client: deps.client });
-      await streamFromCache(entry, res, true);
+      await streamFromCache(entry, req, res, true);
     } catch (error) {
       next(error);
     }

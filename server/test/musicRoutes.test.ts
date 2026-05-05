@@ -150,8 +150,24 @@ describe('musicRoutes', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toBe('audio/mpeg');
     expect(res.headers['content-length']).toBe(String(buf.length));
+    expect(res.headers['accept-ranges']).toBe('bytes');
     expect(res.headers['content-disposition']).toMatch(/^inline; filename=/);
     expect(Buffer.compare(res.body, buf)).toBe(0);
+  });
+
+  test('GET /api/songs/:id/stream supports range requests', async () => {
+    const { app, deps } = buildApp();
+    const { file, buf } = makeTempAudioFile(10);
+    const entry = cacheEntryFor(file, buf.length);
+    (deps.cache.get as jest.Mock).mockResolvedValue(entry);
+    const res = await request(app)
+      .get('/api/songs/99/stream')
+      .set('Range', 'bytes=0-3');
+    expect(res.status).toBe(206);
+    expect(res.headers['accept-ranges']).toBe('bytes');
+    expect(res.headers['content-range']).toBe(`bytes 0-3/${buf.length}`);
+    expect(res.headers['content-length']).toBe('4');
+    expect(res.body.length).toBe(4);
   });
 
   test('GET /api/songs/:id/download serves as attachment', async () => {

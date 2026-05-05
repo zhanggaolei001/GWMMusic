@@ -30,7 +30,14 @@ export async function fetchAndCacheSong({
       id: String(songId),
       br: bitrate,
     }, requestOptions);
-    first = songUrlResponse?.data?.[0];
+    const candidates = Array.isArray(songUrlResponse?.data) ? songUrlResponse.data : [];
+    const preferFormats = ["mp3", "m4a", "aac", "mp4"];
+    first = candidates.find((item: any) => {
+      const url = (item?.url || "") as string;
+      const ext = url.split("?")[0].split(".").pop()?.toLowerCase();
+      const type = typeof item?.type === "string" ? item.type.toLowerCase() : undefined;
+      return Boolean(url) && Boolean(ext && preferFormats.includes(ext) || type && preferFormats.includes(type));
+    }) || candidates[0];
   } catch {
     // ignore and handle fallback below
   }
@@ -58,13 +65,39 @@ export async function fetchAndCacheSong({
     }
   }
 
+  const extFromUrl = first.url.split("?")[0].split(".").pop()?.toLowerCase();
+  const typeFromApi = typeof first.type === "string" ? first.type.toLowerCase() : undefined;
+  const incompatible = ["flac", "ape"]; // common unsupported formats in browsers
+  if (extFromUrl && incompatible.includes(extFromUrl) || typeFromApi && incompatible.includes(typeFromApi)) {
+    try {
+      const detail = await client.call<any>("song_detail", { ids: String(songId) }, requestOptions);
+      const song = detail?.songs?.[0];
+      const title = song?.name as string | undefined;
+      const primaryArtist = song?.ar?.[0]?.name as string | undefined;
+      const keywords = [title, primaryArtist].filter(Boolean).join(" ") || String(songId);
+
+      return fetchAndCacheFromBiliWithOptions({
+        cache,
+        tag,
+        songId,
+        keywords,
+        desiredName: title,
+        desiredArtist: primaryArtist,
+        client,
+        format: "mp3",
+      });
+    } catch {
+      // continue with original if fallback fails
+    }
+  }
+
   const audioResponse = await axios.get(first.url, {
     responseType: "stream",
     timeout: config.netease.timeoutMs,
   });
 
   const mimeTypeHeader = (audioResponse.headers["content-type"] as string) || "audio/mpeg";
-  const preferred = ["flac", "ape", "mp3"];
+  const preferred = ["mp3", "m4a", "aac", "mp4", "flac", "ape"];
   const urlExt = first.url.split("?")[0].split(".").pop()?.toLowerCase();
   const typeExt = typeof first.type === "string" ? first.type.toLowerCase() : undefined;
   const mimeExt = (mime.extension(mimeTypeHeader) || "bin").toString().toLowerCase();
